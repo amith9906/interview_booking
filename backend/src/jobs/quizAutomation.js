@@ -25,10 +25,30 @@ const runReminderTask = async () => {
 };
 
 const startQuizAutomation = () => {
+  if (process.env.DISABLE_QUIZ_AUTOMATION === 'true') {
+    console.info('[QuizAutomation] disabled via env');
+    return {
+      stop: () => {}
+    };
+  }
+
+  const timers = [];
+
+  const schedule = () => {
+    timers.push(setInterval(runDailyTask, DAILY_MS));
+    timers.push(setInterval(runReminderTask, DAILY_MS));
+  };
+
   runDailyTask();
   runReminderTask();
-  setInterval(runDailyTask, DAILY_MS);
-  setInterval(runReminderTask, DAILY_MS);
+  schedule();
+
+  return {
+    stop: () => {
+      timers.forEach((timer) => clearInterval(timer));
+      timers.length = 0;
+    }
+  };
 };
 
 module.exports = { startQuizAutomation };

@@ -21,6 +21,11 @@ Full-stack interview scheduling suite with four user roles (student/interviewer/
    - `cd frontend && npm install`
 4. Run Postgres locally or via Docker (see below).
 
+### Runtime guards
+- Set `FRONTEND_URL` (comma separated if you have previews) so the API can enforce a whitelist when running in production. Missing this value now throws at start.
+- `SKIP_MIGRATIONS=true` will opt out of the automatic `npx sequelize-cli db:migrate` step that happens each time the API boots, but the default is to keep your schema up to date before accepting traffic.
+- Background jobs only run when `RUN_BACKGROUND_JOBS=true` or in `NODE_ENV=development`. Production app servers should keep that flag `false` and use `npm run start:jobs` (or a dedicated worker) to run the admin reminder and quiz automation tasks. Flip `DISABLE_QUIZ_AUTOMATION=true` whenever you want to pause the quiz scheduler without touching the other jobs.
+
 ## Analytics per role
 
 - `/api/student/analytics` returns booking counts, paid/completed ratio, average rating, and top skills for the logged-in student.

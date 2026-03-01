@@ -7,6 +7,7 @@
     "dev": "nodemon src/index.js",
     "migrate": "npx sequelize-cli db:migrate",
     "seed": "npx sequelize-cli db:seed:all",
+    "start:jobs": "node src/jobs/backgroundManager.js",
     "verify-infra": "node scripts/verifyInfra.js",
     "verify-health": "node scripts/checkInfraHealth.js"
   },
