@@ -1,0 +1,44 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: changeme
+      POSTGRES_DB: interview_booking
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+
+  backend:
+    build:
+      context: ./backend
+    working_dir: /app
+    command: npm run dev
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://postgres:changeme@db:5432/interview_booking
+      JWT_SECRET: supersecretjwtkey
+      FRONTEND_URL: http://localhost:5173
+      STRIPE_SECRET_KEY: sk_test_placeholder
+      EMAIL_HOST: smtp.example.com
+      EMAIL_PORT: 587
+      EMAIL_USER: user@example.com
+      EMAIL_PASS: password
+      CLOUDINARY_URL: cloudinary://...
+    depends_on:
+      - db
+    ports:
+      - '5000:5000'
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - '5173:4173'
+    environment:
+      VITE_API_URL: http://localhost:5000/api
+volumes:
+  db_data:
