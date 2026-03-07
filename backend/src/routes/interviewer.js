@@ -6,6 +6,7 @@ const {
   startInterview,
   acknowledgeBooking,
   rescheduleBooking,
+  rejectBooking,
   downloadResumeForInterviewer
 } = require('../controllers/interviewerController');
 const {
@@ -23,6 +24,7 @@ router.get('/bookings', getBookings);
 router.patch('/bookings/:id/start', startInterview);
 router.post('/bookings/:id/acknowledge', acknowledgeBooking);
 router.post('/bookings/:id/reschedule', rescheduleBooking);
+router.post('/bookings/:id/reject', rejectBooking);
 router.post('/rate', rateInterview);
 router.get('/resumes/:id', downloadResumeForInterviewer);
 router.get('/analytics', getInterviewerAnalytics);

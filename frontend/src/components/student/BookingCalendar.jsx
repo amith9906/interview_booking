@@ -35,9 +35,14 @@ const BookingCalendar = () => {
 
   return (
     <Box>
-      <Typography variant="h6" gutterBottom fontWeight="bold" mt={4}>
-        Available Interviewers
-      </Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mt={4} mb={1}>
+        <Typography variant="h6" fontWeight="bold">
+          Available Interviewers
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          Times shown in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone})
+        </Typography>
+      </Box>
 
       <Stack spacing={4} mt={2}>
         {availableInterviewers.length === 0 && (
@@ -216,7 +221,8 @@ const BookingCalendar = () => {
               Proceed to Payment (Card / UPI)
             </Button>
             <Typography variant="caption" color="text.secondary">
-              Payments processed in INR via Stripe (cards + UPI).
+              Payments processed in INR via Stripe (cards + UPI). <br />
+              <strong>Refund Policy:</strong> 100% refund if cancelled &gt; 24h before session. No refund within 24h.
             </Typography>
                 </CardActions>
               </Card>
@@ -226,9 +232,12 @@ const BookingCalendar = () => {
         {availableInterviewers.length > 0 &&
           availableInterviewers.every((i) => !i.availability_slots || i.availability_slots.length === 0) && (
             <Card sx={{ p: 4, textAlign: 'center', background: 'rgba(255,255,255,0.02)' }}>
-              <Typography variant="h6" color="text.secondary" mb={1}>
-                No Slots Available
-              </Typography>
+              <Typography variant="body2" color="text.secondary" mb={1}>
+          Configure the dates and times you are available to conduct interviews.
+        </Typography>
+        <Typography variant="caption" color="text.secondary" display="block" mb={3}>
+          Note: All slots are managed in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone}).
+        </Typography>
               <Typography variant="body2" color="text.secondary">
                 The interviewers matching your criteria do not have any open time slots at the moment.
               </Typography>

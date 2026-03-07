@@ -66,9 +66,23 @@ const extractResumeData = async (buffer) => {
   }
 };
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_MIMETYPES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+
 const uploadResume = async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Resume file required' });
   if (req.user.role !== 'student') return res.status(403).json({ message: 'Only students can upload resumes' });
+
+  // File size validation
+  if (req.file.size > MAX_FILE_SIZE) {
+    return res.status(400).json({ message: 'File size exceeds 5MB limit' });
+  }
+
+  // File type validation
+  if (!ALLOWED_MIMETYPES.includes(req.file.mimetype)) {
+    return res.status(400).json({ message: 'Invalid file type. Only PDF and Word docs are allowed.' });
+  }
+
   const student = await Student.findOne({ where: { user_id: req.user.id } });
   if (!student) return res.status(404).json({ message: 'Student profile missing' });
   const buffer = req.file.buffer;

@@ -102,4 +102,61 @@ const createFeedbackReportBuffer = async ({ booking, interview }) => {
   });
 };
 
-module.exports = { createFeedbackReportBuffer };
+const createPaymentReceiptBuffer = async ({ booking, session }) => {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const buffers = [];
+
+    doc.on('data', (chunk) => buffers.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(buffers)));
+    doc.on('error', (err) => reject(err));
+
+    // Header
+    doc.rect(0, 0, doc.page.width, 80).fill('#10b981'); // Green for success
+    doc.fillColor('#fff').fontSize(22).font('Helvetica-Bold').text('Payment Receipt', 50, 28);
+    doc.fontSize(10).font('Helvetica').text('Interview Booking Platform - Official Invoice', 50, 55);
+    doc.fillColor('#000');
+    doc.moveDown(3);
+
+    const student = booking.Student;
+    const interviewer = booking.Interviewer;
+    const date = new Date();
+
+    doc.fontSize(12).font('Helvetica-Bold').text('Billed To:');
+    doc.font('Helvetica').text(student?.User?.name || 'N/A');
+    doc.text(student?.User?.email || 'N/A');
+    doc.moveDown();
+
+    doc.font('Helvetica-Bold').text('Receipt Details:');
+    drawField(doc, 'Booking ID', booking.id.toString());
+    drawField(doc, 'Date', date.toLocaleDateString());
+    drawField(doc, 'Session ID', session?.id || booking.stripe_session_id || 'N/A');
+    doc.moveDown();
+
+    doc.font('Helvetica-Bold').text('Interview Details:');
+    drawField(doc, 'Interviewer', interviewer?.User?.name || 'N/A');
+    drawField(doc, 'Time', new Date(booking.slot_time).toLocaleString());
+    doc.moveDown();
+
+    // Amount Table
+    const tableTop = doc.y;
+    doc.rect(40, tableTop, 515, 25).fill('#f3f4f6');
+    doc.fillColor('#374151').font('Helvetica-Bold').text('Description', 50, tableTop + 7);
+    doc.text('Amount', 450, tableTop + 7, { align: 'right', width: 100 });
+    
+    doc.fillColor('#000').font('Helvetica').text('Professional Interview Session Fee', 50, tableTop + 35);
+    doc.text(`INR ${(booking.amount || 0).toFixed(2)}`, 450, tableTop + 35, { align: 'right', width: 100 });
+    
+    doc.moveTo(40, tableTop + 55).lineTo(555, tableTop + 55).stroke('#d1d5db');
+    
+    doc.font('Helvetica-Bold').fontSize(14).text('Total Paid', 350, tableTop + 70);
+    doc.text(`INR ${(booking.amount || 0).toFixed(2)}`, 450, tableTop + 70, { align: 'right', width: 100 });
+
+    doc.moveDown(4);
+    doc.fontSize(10).font('Helvetica-Oblique').text('Thank you for choosing Interview Booking Platform. This is a computer-generated receipt.', { align: 'center' });
+    
+    doc.end();
+  });
+};
+
+module.exports = { createFeedbackReportBuffer, createPaymentReceiptBuffer };

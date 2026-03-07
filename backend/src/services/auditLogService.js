@@ -12,6 +12,9 @@ const logAudit = (req, action, metadata = {}) => {
     const entry = {
       timestamp: new Date().toISOString(),
       actor_id: req?.user?.id || 'system',
+      actor_role: req?.user?.role || 'system',
+      ip_address: req?.ip || req?.headers?.['x-forwarded-for'] || '127.0.0.1',
+      user_agent: req?.headers?.['user-agent'] || 'unknown',
       action,
       ...metadata
     };

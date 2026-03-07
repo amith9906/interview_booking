@@ -81,10 +81,13 @@ const InterviewSearch = () => {
             {/* Secondary Advanced Filters */}
             <Box display="flex" gap={2} flexWrap="wrap">
               <TextField 
-                label="Required Skills (Optional)" 
+                label="Required Skills (Mandatory)" 
                 placeholder="React, Node.js, System Design"
+                required
+                error={!watch('skills') && status === 'idle'}
+                helperText={!watch('skills') ? 'Skills are required for matching' : ''}
                 sx={{ flex: 2, minWidth: 200 }}
-                {...register('skills')} 
+                {...register('skills', { required: true })} 
               />
               <FormControl sx={{ flex: 1, minWidth: 150 }}>
                 <InputLabel>Min Experience</InputLabel>

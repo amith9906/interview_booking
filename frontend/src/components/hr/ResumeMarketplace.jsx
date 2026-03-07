@@ -12,7 +12,7 @@ import {
   Typography
 } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchResumes } from '../../store/resumeSlice';
+import { fetchResumes, bulkDownloadResumes } from '../../store/resumeSlice';
 
 const pipelineStatuses = ['Shortlisted', 'Interviewing', 'Offered'];
 
@@ -112,9 +112,20 @@ const ResumeMarketplace = () => {
               background: 'rgba(15,23,42,0.5)'
             }}
           >
-            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-              {statusName}
-            </Typography>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Typography variant="subtitle1" fontWeight="bold">
+                {statusName}
+              </Typography>
+              {board[statusName]?.length > 0 && (
+                <Button
+                  size="small"
+                  onClick={() => dispatch(bulkDownloadResumes(board[statusName].map(c => c.student_id)))}
+                  sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                >
+                  Download All
+                </Button>
+              )}
+            </Stack>
             <Divider sx={{ mb: 2 }} />
             {(!board[statusName]?.length && (
               <Typography variant="body2" color="text.secondary">

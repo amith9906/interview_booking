@@ -10,8 +10,11 @@ import {
   Paper,
   Stack,
   TextField,
-  Typography
+  Typography,
+  IconButton,
+  InputAdornment
 } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import {
   fetchProfile,
@@ -79,6 +82,7 @@ const LoginRegister = () => {
   const [forgotNewPassword, setForgotNewPassword] = useState('');
   const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
   const [forgotFeedback, setForgotFeedback] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -429,9 +433,18 @@ const LoginRegister = () => {
                         />
                         <TextField
                           label="Password"
-                          type="password"
+                          type={showPassword ? 'text' : 'password'}
                           {...register('password', { required: 'Password required' })}
                           fullWidth
+                          InputProps={{
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                                  {showPassword ? <VisibilityOff /> : <Visibility />}
+                                </IconButton>
+                              </InputAdornment>
+                            )
+                          }}
                         />
                         {mode === 'register' && (
                           <TextField

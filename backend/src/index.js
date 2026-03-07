@@ -12,6 +12,7 @@ const errorHandler = require('./middlewares/errorHandler');
 const { handleStripeWebhook } = require('./controllers/webhookController');
 const { startAdminOpsReminders } = require('./jobs/adminOpsReminders');
 const { startQuizAutomation } = require('./jobs/quizAutomation');
+const { startBookingSanityJob } = require('./jobs/bookingSanity');
 const { logError, alertIfCritical } = require('./services/monitoringService');
 
 const app = express();
@@ -42,6 +43,7 @@ const start = async () => {
     await sequelize.sync();
     startAdminOpsReminders();
     startQuizAutomation();
+    startBookingSanityJob();
     const port = process.env.PORT || 5000;
     app.listen(port, () => {
       console.log(`Backend running on port ${port}`);

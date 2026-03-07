@@ -1,5 +1,5 @@
-import { AppBar, Box, Button, Container, Toolbar, Typography, ThemeProvider, createTheme, CssBaseline, Stack } from '@mui/material';
-import { Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
+import { AppBar, Box, Button, Container, Toolbar, Typography, ThemeProvider, createTheme, CssBaseline, Stack, LinearProgress } from '@mui/material';
+import { Routes, Route, Link, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from './store/authSlice';
 import AdminDashboard from './pages/AdminDashboard';
@@ -63,8 +63,15 @@ const darkTheme = createTheme({
 function App() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const auth = useSelector((state) => state.auth);
+  const booking = useSelector((state) => state.booking);
   const userRole = auth.user?.role;
+
+  const isLoading = auth.status === 'loading' || 
+                    auth.profileStatus === 'loading' || 
+                    booking.searchStatus === 'loading' || 
+                    booking.bookingStatus === 'loading';
 
   const handleLogout = () => {
     dispatch(logout());
@@ -95,24 +102,25 @@ function App() {
         <AppBar position="sticky" sx={{ zIndex: 1100 }}>
           <Container maxWidth="xl">
             <Toolbar disableGutters sx={{ justifyContent: 'space-between', py: 0.5 }}>
-              <Typography variant="h6" fontWeight="bold" sx={{ background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', cursor: 'pointer' }} onClick={() => navigate('/')}>
+              <Typography variant="h6" fontWeight="bold" sx={{ background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', cursor: 'pointer' }} onClick={() => navigate('/')} aria-label="Home">
                 Interview Booking App
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 {auth.token && <NotificationPanel />}
                 {auth.token && (
-                  <Button color="inherit" onClick={handleLogout} sx={{ '&:hover': { background: 'rgba(255,255,255,0.08)' } }}>
+                  <Button color="inherit" onClick={handleLogout} sx={{ '&:hover': { background: 'rgba(255,255,255,0.08)' } }} aria-label="Logout">
                     Logout
                   </Button>
                 )}
                 {!auth.token && location.pathname !== '/' && (
-                  <Button component={Link} to="/" color="inherit" sx={{ '&:hover': { background: 'rgba(255,255,255,0.08)' } }}>
+                  <Button component={Link} to="/" color="inherit" sx={{ '&:hover': { background: 'rgba(255,255,255,0.08)' } }} aria-label="Login">
                     Login
                   </Button>
                 )}
               </Box>
             </Toolbar>
           </Container>
+          {isLoading && <LinearProgress sx={{ position: 'absolute', bottom: 0, left: 0, right: 0 }} />}
         </AppBar>
         {/* {auth.token && <NotificationPanel />} */}
         <Box component="main" sx={{ flexGrow: 1, position: 'relative', zIndex: 10 }}>
@@ -142,8 +150,26 @@ function App() {
                 )
               }
             />
-            <Route path="/hr" element={auth.token ? <HRDashboard /> : <Navigate to="/" />} />
-            <Route path="/admin" element={auth.token ? <AdminDashboard /> : <Navigate to="/" />} />
+            <Route
+              path="/hr"
+              element={
+                auth.token && userRole === 'hr' ? (
+                  <HRDashboard />
+                ) : (
+                  <Navigate to="/" />
+                )
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                auth.token && userRole === 'admin' ? (
+                  <AdminDashboard />
+                ) : (
+                  <Navigate to="/" />
+                )
+              }
+            />
             <Route
               path="/complete-profile"
               element={

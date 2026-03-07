@@ -73,6 +73,27 @@ const StudentBookings = () => {
               <Typography variant="body2" color="text.secondary">
                 Amount paid: ₹{booking.amount ?? '—'}
               </Typography>
+              {booking.status !== 'cancelled' && booking.status !== 'completed' && (
+                <Box mt={2}>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    onClick={async () => {
+                      if (window.confirm('Are you sure you want to cancel this interview?')) {
+                        try {
+                          await api.post(`/student/cancel-booking/${booking.id}`);
+                          dispatch(fetchStudentBookings());
+                        } catch (err) {
+                          alert(err.response?.data?.message || 'Failed to cancel booking');
+                        }
+                      }
+                    }}
+                  >
+                    Cancel Appointment
+                  </Button>
+                </Box>
+              )}
             </CardContent>
           </Card>
         ))

@@ -1,8 +1,13 @@
+const archiver = require('archiver');
 const { createCheckoutSession, createCustomer } = require('../services/stripeService');
 const { Op } = require('sequelize');
-const { Resume, Student, HrUser, User, HrTransaction } = require('../models');
+const { Resume, Student, HrUser, User, HrTransaction, Interview, Booking, Interviewer } = require('../models');
 const { fetchPointsRules, calculateResumeCost } = require('../services/pointsService');
 const { fetchLatestPublishedInterviewsByStudent } = require('../utils/interviewHelpers');
+const { sendFeedbackNotification } = require('../services/notificationService');
+const { logAudit } = require('../services/auditLogService');
+const fs = require('fs');
+const path = require('path');
 
 const listResumes = async (req, res) => {
   const {
@@ -25,17 +30,10 @@ const listResumes = async (req, res) => {
       studentWhere.skills = { [Op.overlap]: parsedSkills };
     }
   }
-  if (min_experience) {
-    studentWhere.experience_years = {
-      ...(studentWhere.experience_years || {}),
-      [Op.gte]: Number(min_experience)
-    };
-  }
-  if (max_experience) {
-    studentWhere.experience_years = {
-      ...(studentWhere.experience_years || {}),
-      [Op.lte]: Number(max_experience)
-    };
+  if (min_experience || max_experience) {
+    studentWhere.experience_years = {};
+    if (min_experience) studentWhere.experience_years[Op.gte] = Number(min_experience);
+    if (max_experience) studentWhere.experience_years[Op.lte] = Number(max_experience);
   }
   if (location) {
     studentWhere.location = { [Op.iLike]: `%${location}%` };
@@ -121,7 +119,6 @@ const downloadResume = async (req, res) => {
   });
   if (!resume) return res.status(404).json({ message: 'Resume not found' });
   if (!resume.visible_to_hr) return res.status(403).json({ message: 'Resume not published to HR' });
-  if (!resume.visible_to_hr) return res.status(403).json({ message: 'Resume not published to HR' });
   const cost = calculateResumeCost(resume, rules);
   if (!hr.subscription_active && hr.subscription_points < cost) {
     return res.status(402).json({ message: 'Purchase points or activate subscription' });
@@ -139,14 +136,22 @@ const downloadResume = async (req, res) => {
     resume_id: resume.id
   });
   const canView = hr.students_visible !== false;
-  res.json({
-    url: resume.file_path,
-    candidate: canView ? resume.Student?.User?.name : 'Restricted',
-    email: canView ? resume.Student?.User?.email : undefined,
-    download_count: resume.download_count,
-    cost_points: cost,
-    balance: hr.subscription_points
-  });
+  const fileName = `${resume.Student?.User?.name || 'resume'}-${resume.id}${path.extname(resume.file_path)}`;
+  const absolutePath = path.join(process.cwd(), resume.file_path);
+
+  if (fs.existsSync(absolutePath)) {
+      res.download(absolutePath, fileName);
+  } else {
+      res.json({
+        url: resume.file_path,
+        candidate: canView ? resume.Student?.User?.name : 'Restricted',
+        email: canView ? resume.Student?.User?.email : undefined,
+        download_count: resume.download_count,
+        cost_points: cost,
+        balance: hr.subscription_points,
+        message: 'File not found on local disk, using URL'
+      });
+  }
 };
 
 const subscribe = async (req, res) => {
@@ -209,4 +214,99 @@ const getResumeCost = async (req, res) => {
   res.json({ cost_points: cost, balance: hr?.subscription_points || 0 });
 };
 
-module.exports = { listResumes, downloadResume, subscribe, getHrAnalytics, getResumeCost };
+const listPendingFeedback = async (req, res) => {
+  const interviews = await Interview.findAll({
+    where: { interviewer_feedback_published: false },
+    include: [
+      {
+        model: Booking,
+        include: [
+          { model: Student, include: [User] },
+          { model: Interviewer, include: [User] }
+        ]
+      }
+    ]
+  });
+  res.json({ interviews });
+};
+
+const approveFeedback = async (req, res) => {
+  const { id } = req.params;
+  const interview = await Interview.findByPk(id, {
+    include: [{ model: Booking, include: [Student, { model: Interviewer, include: [User] }] }]
+  });
+  if (!interview) return res.status(404).json({ message: 'Interview feedback not found' });
+  if (interview.interviewer_feedback_published) {
+    return res.status(400).json({ message: 'Feedback already published' });
+  }
+
+  interview.interviewer_feedback_published = true;
+  interview.interviewer_feedback_published_at = new Date();
+  await interview.save();
+
+  // Update interviewer rating now (DEF-025)
+  const interviewer = interview.Booking?.Interviewer;
+  if (interviewer) {
+    const prevCount = interviewer.rating_count || 0;
+    const prevTotal = (interviewer.average_rating || 0) * prevCount;
+    const newCount = prevCount + 1;
+    interviewer.average_rating = (prevTotal + Number(interview.overall_rating || 0)) / newCount;
+    interviewer.rating_count = newCount;
+    await interviewer.save();
+  }
+
+  // Notify student
+  const studentEmail = interview.Booking?.Student?.User?.email;
+  const studentUserId = interview.Booking?.Student?.user_id;
+  if (studentEmail) {
+    await sendFeedbackNotification({
+      bookingId: interview.booking_id,
+      to: studentEmail,
+      userId: studentUserId
+    });
+  }
+
+  logAudit(req, 'hr_approve_feedback', { interviewId: interview.id, bookingId: interview.booking_id });
+  res.json({ message: 'Feedback approved and published', interview });
+};
+
+
+const bulkDownloadResumes = async (req, res) => {
+  const { studentIds } = req.body;
+  if (!studentIds || !Array.isArray(studentIds)) {
+    return res.status(400).json({ message: 'studentIds array is required' });
+  }
+
+  const resumes = await Resume.findAll({
+    where: { student_id: { [Op.in]: studentIds } }
+  });
+
+  if (resumes.length === 0) {
+    return res.status(404).json({ message: 'No resumes found for selected students' });
+  }
+
+  const archive = archiver('zip', { zlib: { level: 9 } });
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', 'attachment; filename="resumes.zip"');
+
+  archive.pipe(res);
+
+  for (const resume of resumes) {
+    if (resume.file_content) {
+      archive.append(resume.file_content, { name: `${resume.filename || 'resume'}_${resume.student_id}.pdf` });
+    }
+  }
+
+  await archive.finalize();
+};
+
+module.exports = {
+  listResumes,
+  downloadResume,
+  subscribe,
+  getHrAnalytics,
+  getResumeCost,
+  bulkDownloadResumes,
+  listPendingFeedback,
+  approveFeedback
+};

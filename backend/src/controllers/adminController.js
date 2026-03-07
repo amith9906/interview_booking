@@ -1859,6 +1859,17 @@ const downloadFeedbackTemplate = async (req, res) => {
   doc.end();
 };
 
+const toggleUserStatus = async (req, res) => {
+  const { id } = req.params;
+  const { active } = req.body;
+  const user = await User.findByPk(id);
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  user.is_active = active === undefined ? !user.is_active : Boolean(active);
+  await user.save();
+  logAudit(req, 'admin_toggle_user_status', { targetUserId: user.id, is_active: user.is_active });
+  res.json({ message: `User ${user.email} status updated`, user: { id: user.id, is_active: user.is_active } });
+};
+
 module.exports = {
   createUser,
   getAnalytics,

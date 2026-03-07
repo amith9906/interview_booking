@@ -106,6 +106,34 @@ const acknowledgeBooking = async (req, res) => {
   res.json({ booking });
 };
 
+const rejectBooking = async (req, res) => {
+  const { id: bookingId } = req.params;
+  const { reason } = req.body;
+  const interviewer = await Interviewer.findOne({ where: { user_id: req.user.id } });
+  if (!interviewer) return res.status(404).json({ message: 'Interviewer profile missing' });
+  const booking = await Booking.findOne({
+    where: { id: bookingId, interviewer_id: interviewer.id },
+    include: [{ model: Student, include: [User] }]
+  });
+  if (!booking) return res.status(404).json({ message: 'Booking not found' });
+  
+  booking.status = 'cancelled'; // Or 'rejected'
+  booking.notes = reason ? `Rejected by interviewer: ${reason}` : 'Rejected by interviewer';
+  await booking.save();
+  
+  logAudit(req, 'reject_booking', { bookingId, interviewerId: interviewer.id, reason });
+  
+  if (booking.Student?.User?.email) {
+      await sendEmail({
+          to: booking.Student.User.email,
+          subject: 'Interview Slot Rejected',
+          text: `Unfortunately, the interviewer has rejected the booking #${booking.id}. Any paid fees will be refunded. Reason: ${reason || 'N/A'}`
+      });
+  }
+  
+  res.json({ message: 'Booking rejected', booking });
+};
+
 const rescheduleBooking = async (req, res) => {
   const { id: bookingId } = req.params;
   const { slot_time } = req.body;
@@ -188,22 +216,39 @@ const rateInterview = async (req, res) => {
       include: [User]
     }]
   });
-  if (!booking) return res.status(404).json({ message: 'Booking not found' });
+  // Enforce timing (DEF-022)
+  if (new Date(booking.slot_time) > new Date()) {
+    return res.status(403).json({ message: 'Cannot submit feedback before the interview time has passed.' });
+  }
+
+  // Enforce character limit (DEF-024)
+  if (feedback && feedback.length > 1000) {
+    return res.status(400).json({ message: 'Feedback exceeds 1000 character limit.' });
+  }
+
+  // Enforce mandatory skill ratings (DEF-023)
+  // Assuming we check against the student's skills or a required set
+  // This is a simplified check
+  if (!overall_rating || Object.keys(skill_ratings).length === 0) {
+      return res.status(400).json({ message: 'Overall rating and skill ratings are mandatory.' });
+  }
+
   let interview = await Interview.findOne({ where: { booking_id } });
   if (interview && interview.interviewer_feedback_published) {
     return res
       .status(403)
-      .json({ message: 'Feedback already published. Contact admin to update the template.' });
+      .json({ message: 'Feedback already published. Contact HR/Admin to update.' });
   }
-  const [savedInterview, created] = await Interview.upsert({
+
+  const [savedInterview] = await Interview.upsert({
     booking_id,
     skill_ratings,
     skill_comments,
     overall_rating,
     feedback,
     improve_areas,
-    interviewer_feedback_published: true,
-    interviewer_feedback_published_at: new Date(),
+    interviewer_feedback_published: false, // Set to false for HR review (DEF-025, DEF-032)
+    interviewer_feedback_published_at: null,
     student_feedback_submitted: false,
     student_feedback_submitted_at: null
   }, { returning: true });
@@ -230,32 +275,24 @@ const rateInterview = async (req, res) => {
     await booking.Student.save();
   }
 
-  const interviewer = await Interviewer.findByPk(booking.interviewer_id);
-  if (interviewer && created) {
-    const prevCount = interviewer.rating_count || 0;
-    const prevTotal = (interviewer.average_rating || 0) * prevCount;
+  // We remove the auto-increment of ratings here as it should happen after HR approval
+  /*
+  const interviewerEntity = await Interviewer.findByPk(booking.interviewer_id);
+  if (interviewerEntity && created) {
+    const prevCount = interviewerEntity.rating_count || 0;
+    const prevTotal = (interviewerEntity.average_rating || 0) * prevCount;
     const newCount = prevCount + 1;
-    interviewer.average_rating = newCount ? (prevTotal + Number(overall_rating || 0)) / newCount : 0;
-    interviewer.rating_count = newCount;
-    await interviewer.save();
+    interviewerEntity.average_rating = newCount ? (prevTotal + Number(overall_rating || 0)) / newCount : 0;
+    interviewerEntity.rating_count = newCount;
+    await interviewerEntity.save();
   }
-  const studentEmail = booking.Student?.User?.email;
-  await sendBookingNotification({
+  */
+
+  logAudit(req, 'submit_interview_feedback_for_review', {
     bookingId: booking.id,
-    to: studentEmail,
-    userId: booking.Student?.user_id
-  });
-  await sendFeedbackNotification({
-    bookingId: booking.id,
-    to: studentEmail,
-    userId: booking.Student?.user_id
-  });
-  logAudit(req, 'publish_interview_feedback', {
-    bookingId: booking.id,
-    interviewId: interview?.id,
     interviewerId: booking.interviewer_id
   });
-  res.json({ interview, created });
+  res.json({ message: 'Feedback submitted for HR review', interview });
 };
 
 const getInterviewerAnalytics = async (req, res) => {
@@ -280,6 +317,9 @@ const getInterviewerAnalytics = async (req, res) => {
   });
 };
 
+
+
+
 module.exports = {
   getBookings,
   rateInterview,
@@ -287,5 +327,6 @@ module.exports = {
   startInterview,
   acknowledgeBooking,
   rescheduleBooking,
+  rejectBooking,
   downloadResumeForInterviewer
 };

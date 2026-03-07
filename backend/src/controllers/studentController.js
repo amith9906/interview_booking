@@ -119,7 +119,19 @@ const bookSlot = async (req, res) => {
   });
 
   if (existingBooking) {
-    return res.status(400).json({ message: 'This slot is already booked.' });
+    return res.status(400).json({ message: 'This interviewer is already booked for this slot.' });
+  }
+
+  const studentDoubleBooking = await Booking.findOne({
+    where: {
+      student_id: student.id,
+      slot_time: new Date(slot_time),
+      status: { [Op.in]: ['pending', 'paid', 'completed'] }
+    }
+  });
+
+  if (studentDoubleBooking) {
+    return res.status(400).json({ message: 'You already have another interview scheduled at this time.' });
   }
   const booking = await Booking.create({
     student_id: student.id,
@@ -498,6 +510,41 @@ const getStudentAnalytics = async (req, res) => {
   });
 };
 
+const cancelBooking = async (req, res) => {
+  const { bookingId } = req.params;
+  const booking = await fetchBookingForStudent(bookingId, req.user.id);
+  if (!booking) return res.status(404).json({ message: 'Booking not found or access denied' });
+  
+  if (booking.status === 'completed' || booking.status === 'cancelled') {
+    return res.status(400).json({ message: 'Cannot cancel a completed or already cancelled booking' });
+  }
+
+  // Check if booking is more than 24 hours away for refund policy (Optional/DEF-018)
+  const hoursUntil = (new Date(booking.slot_time) - new Date()) / (1000 * 60 * 60);
+  if (hoursUntil < 24 && booking.status === 'paid') {
+      // Just a warning for now, or policy enforcement
+  }
+
+  booking.status = 'cancelled';
+  await booking.save();
+  
+  logAudit(req, 'cancel_booking', { bookingId: booking.id, studentId: booking.student_id });
+  
+  // Notify interviewer
+  const interviewer = await Interviewer.findByPk(booking.interviewer_id, {
+      include: [{ model: User, attributes: ['id', 'email', 'name'] }]
+  });
+  if (interviewer?.User?.email) {
+      await sendEmail({
+          to: interviewer.User.email,
+          subject: 'Interview Cancelled',
+          text: `The interview booking #${booking.id} scheduled for ${new Date(booking.slot_time).toLocaleString()} has been cancelled by the student.`
+      });
+  }
+
+  res.json({ message: 'Booking cancelled successfully', booking });
+};
+
 module.exports = {
   searchInterviews,
   bookSlot,
@@ -510,9 +557,8 @@ module.exports = {
   verifySession,
   getStudentAnalytics,
   downloadFeedbackReport,
-  emailFeedbackReport
-  ,
-  submitStudentFeedback
-  ,
-  listStudentBookings
+  emailFeedbackReport,
+  submitStudentFeedback,
+  listStudentBookings,
+  cancelBooking
 };

@@ -22,6 +22,7 @@ const buildUserResponse = (user) => ({
   phone: user.phone
 });
 
+
 const createEmailVerification = async (userId, { purpose = 'initial', targetEmail = null } = {}) => {
   await EmailVerification.destroy({ where: { user_id: userId, purpose } });
   const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -95,9 +96,41 @@ const login = async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ where: { email } });
   if (!user) return res.status(401).json({ message: 'Invalid credentials' });
-  const match = await bcrypt.compare(password, user.password_hash);
-  if (!match) return res.status(401).json({ message: 'Invalid credentials' });
+
+  // Check if account is locked
+  if (user.lockout_until && user.lockout_until > new Date()) {
+    const remainingTime = Math.ceil((user.lockout_until - new Date()) / 60000);
+    return res.status(403).json({ 
+      message: `Account is temporarily locked. Try again in ${remainingTime} minutes.` 
+    });
+  }
+
+    if (!user.is_active) {
+        return res.status(403).json({ message: 'Your account has been deactivated. Please contact support.' });
+    }
+
+  const isValid = await bcrypt.compare(password, user.password_hash);
+  if (!isValid) {
+    user.failed_login_attempts += 1;
+    if (user.failed_login_attempts >= 5) {
+      user.lockout_until = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes lockout
+      user.failed_login_attempts = 0;
+      await user.save();
+      return res.status(403).json({ 
+        message: 'Too many failed attempts. Account locked for 15 minutes.' 
+      });
+    }
+    await user.save();
+    return res.status(401).json({ message: 'Invalid credentials' });
+  }
+
   if (!user.email_verified) return res.status(403).json({ message: 'Email not verified' });
+
+  // Reset failed attempts on successful login
+  user.failed_login_attempts = 0;
+  user.lockout_until = null;
+  await user.save();
+
   const token = generateToken({ id: user.id, role: user.role, email: user.email });
   const profileData = await fetchProfileForUser(user);
   res.json({ user: buildUserResponse(user), profile: profileData, token });
@@ -215,6 +248,29 @@ const resetPassword = async (req, res) => {
   res.json({ message: 'Password updated successfully' });
 };
 
+const getProfile = async (req, res) => {
+  const user = await User.findByPk(req.user.id);
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  const profileData = await fetchProfileForUser(user);
+  res.json({ user: buildUserResponse(user), profile: profileData });
+};
+
+const updateProfile = async (req, res) => {
+  const { name, phone, profile } = req.body;
+  const user = await User.findByPk(req.user.id);
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  if (name) user.name = name;
+  if (phone) user.phone = phone;
+  await user.save();
+  
+  const profileRecord = await fetchProfileForUser(user);
+  if (profileRecord && profile) {
+    await profileRecord.update(profile);
+  }
+  
+  res.json({ message: 'Profile updated', user: buildUserResponse(user), profile: profileRecord });
+};
+
 const changePassword = async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword) {
@@ -251,16 +307,17 @@ const verifyResetCode = async (req, res) => {
 };
 
 module.exports = {
+  buildUserResponse,
   register,
   login,
   verifyEmail,
   forgotPassword,
   resetPassword,
+  getProfile,
+  updateProfile,
   changePassword,
   requestEmailChange,
-  verifyEmailChange
-  ,
-  verifyResetCode
-  ,
+  verifyEmailChange,
+  verifyResetCode,
   resendVerificationCode
 };

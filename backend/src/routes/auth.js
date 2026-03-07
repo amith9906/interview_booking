@@ -6,6 +6,8 @@ const {
   verifyEmail,
   forgotPassword,
   resetPassword,
+  getProfile,
+  updateProfile,
   changePassword,
   verifyResetCode,
   resendVerificationCode
@@ -18,6 +20,8 @@ router.post('/verify-email', verifyEmail);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.post('/change-password', authenticate, changePassword);
+router.get('/profile', authenticate, getProfile);
+router.patch('/profile', authenticate, updateProfile);
 router.post('/verify-reset-code', verifyResetCode);
 router.post('/resend-verification', resendVerificationCode);
 module.exports = router;

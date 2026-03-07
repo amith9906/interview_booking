@@ -13,7 +13,8 @@ const {
   listInternships,
   enrollInternship,
   submitStudentFeedback,
-  listStudentBookings
+  listStudentBookings,
+  cancelBooking
 } = require('../controllers/studentController');
 const { listStudentResources } = require('../controllers/resourceController');
 const authenticate = require('../middlewares/authenticate');
@@ -45,5 +46,7 @@ router.post('/internships', validateBody(enrollInternshipSchema), enrollInternsh
 router.post('/sessions/verify', validateBody(verifySessionSchema), verifySession);
 router.get('/analytics', getStudentAnalytics);
 router.get('/resources', listStudentResources);
+
+router.post('/cancel-booking/:bookingId', cancelBooking);
 
 module.exports = router;

@@ -53,8 +53,11 @@ const AvailabilityConfig = () => {
         <Typography variant="h6" gutterBottom>
           Availability Settings
         </Typography>
-        <Typography variant="body2" color="text.secondary" mb={3}>
+        <Typography variant="body2" color="text.secondary" mb={1}>
           Configure the dates and times you are available to conduct interviews.
+        </Typography>
+        <Typography variant="caption" color="text.secondary" display="block" mb={3}>
+          Note: All slots are managed in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone}).
         </Typography>
 
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mb={4} alignItems="flex-start">
