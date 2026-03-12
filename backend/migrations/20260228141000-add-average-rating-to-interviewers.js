@@ -2,14 +2,20 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.addColumn('interviewers', 'average_rating', {
-      type: Sequelize.FLOAT,
-      allowNull: false,
-      defaultValue: 4.8
-    });
+    const tableInfo = await queryInterface.describeTable('interviewers');
+    if (!tableInfo.average_rating) {
+      await queryInterface.addColumn('interviewers', 'average_rating', {
+        type: Sequelize.FLOAT,
+        allowNull: false,
+        defaultValue: 4.8
+      });
+    }
   },
 
   async down(queryInterface) {
-    await queryInterface.removeColumn('interviewers', 'average_rating');
+    const tableInfo = await queryInterface.describeTable('interviewers');
+    if (tableInfo.average_rating) {
+      await queryInterface.removeColumn('interviewers', 'average_rating');
+    }
   }
 };

@@ -3,13 +3,19 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.addColumn('interviewers', 'meeting_link', {
-      type: Sequelize.STRING,
-      allowNull: true
-    });
+    const tableInfo = await queryInterface.describeTable('interviewers');
+    if (!tableInfo.meeting_link) {
+      await queryInterface.addColumn('interviewers', 'meeting_link', {
+        type: Sequelize.STRING,
+        allowNull: true
+      });
+    }
   },
 
   async down(queryInterface) {
-    await queryInterface.removeColumn('interviewers', 'meeting_link');
+    const tableInfo = await queryInterface.describeTable('interviewers');
+    if (tableInfo.meeting_link) {
+      await queryInterface.removeColumn('interviewers', 'meeting_link');
+    }
   }
 };

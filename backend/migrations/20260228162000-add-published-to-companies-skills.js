@@ -2,20 +2,33 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.addColumn('companies', 'published', {
-      type: Sequelize.BOOLEAN,
-      allowNull: false,
-      defaultValue: false
-    });
-    await queryInterface.addColumn('skills', 'published', {
-      type: Sequelize.BOOLEAN,
-      allowNull: false,
-      defaultValue: false
-    });
+    const companyInfo = await queryInterface.describeTable('companies');
+    if (!companyInfo.published) {
+      await queryInterface.addColumn('companies', 'published', {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+      });
+    }
+
+    const skillInfo = await queryInterface.describeTable('skills');
+    if (!skillInfo.published) {
+      await queryInterface.addColumn('skills', 'published', {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+      });
+    }
   },
 
   async down(queryInterface) {
-    await queryInterface.removeColumn('companies', 'published');
-    await queryInterface.removeColumn('skills', 'published');
+    const companyInfo = await queryInterface.describeTable('companies');
+    if (companyInfo.published) {
+      await queryInterface.removeColumn('companies', 'published');
+    }
+    const skillInfo = await queryInterface.describeTable('skills');
+    if (skillInfo.published) {
+      await queryInterface.removeColumn('skills', 'published');
+    }
   }
 };
