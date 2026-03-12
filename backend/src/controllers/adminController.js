@@ -39,6 +39,9 @@ const { fetchPointsRules, calculateResumeCost } = require('../services/pointsSer
 const { sendFeedbackNotification } = require('../services/notificationService');
 const PDFDocument = require('pdfkit');
 const { logAudit } = require('../services/auditLogService');
+const multer = require('multer');
+const { buildS3Key, uploadToS3, getPresignedUrl } = require('../services/s3Service');
+const adminUpload = multer({ storage: multer.memoryStorage() });
 const { fetchLatestPublishedInterviewsByStudent } = require('../utils/interviewHelpers');
 const normalizeArrayValue = (value) => {
   if (Array.isArray(value)) return value;
@@ -1114,25 +1117,60 @@ const exportReports = async (req, res) => {
 };
 
   const listUsers = async (req, res) => {
-    const [students, interviewers] = await Promise.all([
-      Student.findAll({
-        include: [
-          { model: User, attributes: ['id', 'name', 'email', 'role'] },
-          { model: Resume, as: 'Resumes' }
-        ]
-      }),
-      Interviewer.findAll({
+    const normalizePageParam = (value, fallback) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+    };
+    const normalizePageSize = (value, fallback) => {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) return fallback;
+      const clamped = Math.floor(parsed);
+      if (clamped < 1) return fallback;
+      return Math.min(clamped, 100);
+    };
+
+    const studentPage = normalizePageParam(req.query.student_page, 1);
+    const studentPageSize = normalizePageSize(req.query.student_page_size, 10);
+    const interviewerPage = normalizePageParam(req.query.interviewer_page, 1);
+    const interviewerPageSize = normalizePageSize(req.query.interviewer_page_size, 10);
+
+    const studentResult = await Student.findAndCountAll({
+      include: [
+        { model: User, attributes: ['id', 'name', 'email', 'role'] },
+        { model: Resume, as: 'Resumes' }
+      ],
+      limit: studentPageSize,
+      offset: (studentPage - 1) * studentPageSize,
+      order: [['created_at', 'DESC']],
+      distinct: true
+    });
+    const interviewerResult = await Interviewer.findAndCountAll({
       include: [
         { model: User, attributes: ['id', 'name', 'email', 'role'] },
         { model: Company, attributes: ['id', 'name'] }
-      ]
-    })
-  ]);
-    const studentIds = students.map((student) => student.id).filter(Boolean);
+      ],
+      limit: interviewerPageSize,
+      offset: (interviewerPage - 1) * interviewerPageSize,
+      order: [['created_at', 'DESC']],
+      distinct: true
+    });
+
+    const normalizeCount = (value) => {
+      if (typeof value === 'number') return value;
+      if (Array.isArray(value) && value.length) {
+        const candidate = value[0].count ?? value[0].COUNT;
+        return Number(candidate) || 0;
+      }
+      return Number(value) || 0;
+    };
+
+    const studentRows = studentResult.rows;
+    const interviewerRows = interviewerResult.rows;
+    const studentIds = studentRows.map((student) => student.id).filter(Boolean);
     const latestStudentInterviews = await fetchLatestPublishedInterviewsByStudent(studentIds);
 
     res.json({
-      students: students.map((student) => ({
+      students: studentRows.map((student) => ({
         id: student.id,
         userId: student.user_id,
         name: student.User?.name,
@@ -1146,7 +1184,6 @@ const exportReports = async (req, res) => {
         is_active: student.is_active,
         ratings_avg: student.ratings_avg,
         location: student.location,
-        location: student.location,
         latest_interview_rating: latestStudentInterviews[student.id]?.overall_rating ?? null,
         latest_interview_id: latestStudentInterviews[student.id]?.id ?? null,
         latest_interview_updated_at: latestStudentInterviews[student.id]?.updated_at ?? null,
@@ -1154,14 +1191,14 @@ const exportReports = async (req, res) => {
         deactivation_reason: student.deactivation_reason,
         resume_uploaded: Boolean(student.resume_file) || (student.Resumes?.length || 0) > 0,
         resumes: (student.Resumes || []).map((resume) => ({
-        id: resume.id,
-        file_path: resume.file_path,
-        download_count: resume.download_count,
-        created_at: resume.created_at,
-        visible_to_hr: resume.visible_to_hr
-      }))
-    })),
-      interviewers: interviewers.map((interviewer) => ({
+          id: resume.id,
+          file_path: resume.file_path,
+          download_count: resume.download_count,
+          created_at: resume.created_at,
+          visible_to_hr: resume.visible_to_hr
+        }))
+      })),
+      interviewers: interviewerRows.map((interviewer) => ({
         id: interviewer.id,
         userId: interviewer.user_id,
         name: interviewer.User?.name,
@@ -1173,13 +1210,15 @@ const exportReports = async (req, res) => {
         is_active: interviewer.is_active,
         meeting_link: interviewer.meeting_link,
         average_rating: interviewer.average_rating,
-      activation_reason: interviewer.activation_reason,
-      deactivation_reason: interviewer.deactivation_reason,
-      rate: interviewer.rate,
-      availability_slots: interviewer.availability_slots
-    }))
-  });
-};
+        activation_reason: interviewer.activation_reason,
+        deactivation_reason: interviewer.deactivation_reason,
+        rate: interviewer.rate,
+        availability_slots: interviewer.availability_slots
+      })),
+      studentCount: normalizeCount(studentResult.count),
+      interviewerCount: normalizeCount(interviewerResult.count)
+    });
+  };
 
   const listStudentProfiles = async (req, res) => {
     const { skills, min_experience, max_experience, location } = req.query;
@@ -1429,16 +1468,24 @@ const getStudentDetail = async (req, res) => {
 
 const uploadStudentResume = async (req, res) => {
   const { id } = req.params;
-  const { file_path } = req.body;
-  if (!file_path) return res.status(400).json({ message: 'file_path required' });
-  const student = await Student.findByPk(id);
-  if (!student) return res.status(404).json({ message: 'Student not found' });
-  const resume = await Resume.create({
-    student_id: student.id,
-    file_path,
-    download_count: 0
+  if (!req.file) return res.status(400).json({ message: 'Resume file required' });
+  const student = await Student.findByPk(id, {
+    include: [{ model: User, as: 'User', attributes: ['name', 'email'] }]
   });
-  student.resume_file = file_path;
+  if (!student) return res.status(404).json({ message: 'Student not found' });
+
+  const studentName = (student.User?.name || student.User?.email || `student-${student.id}`)
+    .toLowerCase()
+    .replace(/[^a-z0-9.-]+/g, '_')
+    .replace(/__+/g, '_')
+    .replace(/^_|_$/g, '');
+  const sanitizedFilename = req.file.originalname.replace(/[^\w.-]/g, '_');
+  const s3Key = buildS3Key(studentName, sanitizedFilename);
+
+  await uploadToS3(req.file.buffer, s3Key, req.file.mimetype);
+
+  const resume = await Resume.create({ student_id: student.id, file_path: s3Key, download_count: 0 });
+  student.resume_file = s3Key;
   await student.save();
   res.status(201).json({ resume });
 };
@@ -1463,8 +1510,9 @@ const downloadResumeForAdmin = async (req, res) => {
     email: resume.Student?.User?.email,
     download_count: resume.download_count
   });
+  const url = await getPresignedUrl(resume.file_path);
   res.json({
-    url: resume.file_path,
+    url,
     candidate: resume.Student?.User?.name,
     email: resume.Student?.User?.email,
     download_count: resume.download_count,

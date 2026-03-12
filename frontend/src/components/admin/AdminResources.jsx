@@ -40,6 +40,7 @@ const AdminResources = () => {
   const [error, setError] = useState('');
   const [assignPending, setAssignPending] = useState({});
   const [resourceActionLoading, setResourceActionLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const loadStudents = useCallback(async () => {
     const response = await api.get('/admin/users/list');
@@ -67,6 +68,8 @@ const AdminResources = () => {
     loadAssignments();
   }, [loadStudents, loadResources, loadAssignments]);
 
+  const isFileType = ['pdf', 'ppt'].includes(form.resource_type);
+
   const handleCreate = async () => {
     if (!form.title) {
       setError('Title is required');
@@ -76,16 +79,25 @@ const AdminResources = () => {
     setMessage('');
     setSaving(true);
     try {
-      await api.post('/admin/resources', form);
+      let payload;
+      let headers = {};
+      if (isFileType && selectedFile) {
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('title', form.title);
+        if (form.description) formData.append('description', form.description);
+        formData.append('resource_type', form.resource_type);
+        if (form.link) formData.append('link', form.link);
+        if (form.student_ids.length) formData.append('student_ids', JSON.stringify(form.student_ids));
+        payload = formData;
+        headers = { 'Content-Type': 'multipart/form-data' };
+      } else {
+        payload = form;
+      }
+      await api.post('/admin/resources', payload, { headers });
       setMessage('Resource created and shared');
-      setForm({
-        title: '',
-        description: '',
-        resource_type: 'pdf',
-        link: '',
-        file_url: '',
-        student_ids: []
-      });
+      setForm({ title: '', description: '', resource_type: 'pdf', link: '', file_url: '', student_ids: [] });
+      setSelectedFile(null);
       loadResources();
       loadAssignments();
     } catch (err) {
@@ -182,9 +194,10 @@ const AdminResources = () => {
               <Select
                 value={form.resource_type}
                 label="Resource type"
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, resource_type: event.target.value }))
-                }
+                onChange={(event) => {
+                  setForm((prev) => ({ ...prev, resource_type: event.target.value }));
+                  setSelectedFile(null);
+                }}
               >
                 {resourceTypes.map((type) => (
                   <MenuItem key={type} value={type}>
@@ -200,13 +213,32 @@ const AdminResources = () => {
               fullWidth
             />
           </Stack>
-          <TextField
-            label="File URL"
-            value={form.file_url}
-            onChange={(event) => setForm((prev) => ({ ...prev, file_url: event.target.value }))}
-            helperText="Paste Cloudinary or upload URL"
-            fullWidth
-          />
+          {isFileType ? (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Button component="label" variant="outlined">
+                {selectedFile ? selectedFile.name : `Upload ${form.resource_type.toUpperCase()} file`}
+                <input
+                  type="file"
+                  hidden
+                  accept={form.resource_type === 'pdf' ? '.pdf' : '.ppt,.pptx'}
+                  onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
+                />
+              </Button>
+              {selectedFile && (
+                <Typography variant="caption" color="text.secondary">
+                  {(selectedFile.size / 1024).toFixed(0)} KB
+                </Typography>
+              )}
+            </Stack>
+          ) : (
+            <TextField
+              label="File URL"
+              value={form.file_url}
+              onChange={(event) => setForm((prev) => ({ ...prev, file_url: event.target.value }))}
+              helperText="Paste a direct URL to the file"
+              fullWidth
+            />
+          )}
           <FormControl fullWidth>
             <InputLabel>Students</InputLabel>
             <Select

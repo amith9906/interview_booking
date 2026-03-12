@@ -20,6 +20,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Typography
@@ -54,7 +55,16 @@ const UserManager = () => {
   const [companies, setCompanies] = useState([]);
   const [skillInput, setSkillInput] = useState('');
   const [companyInput, setCompanyInput] = useState('');
-  const [users, setUsers] = useState({ students: [], interviewers: [] });
+  const [users, setUsers] = useState({
+    students: [],
+    interviewers: [],
+    studentCount: 0,
+    interviewerCount: 0
+  });
+  const [studentPage, setStudentPage] = useState(0);
+  const [studentPageSize, setStudentPageSize] = useState(10);
+  const [interviewerPage, setInterviewerPage] = useState(0);
+  const [interviewerPageSize, setInterviewerPageSize] = useState(10);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userBookings, setUserBookings] = useState([]);
@@ -144,7 +154,7 @@ const UserManager = () => {
     cost: null,
     loadingCost: false,
     downloading: false,
-    uploadPath: '',
+    uploading: false,
     visibleToHr: false,
     publishing: false
   });
@@ -186,13 +196,46 @@ const UserManager = () => {
   const loadUsers = useCallback(async () => {
     setLoadingUsers(true);
     try {
-      const response = await api.get('/admin/users/list');
-      setUsers(response.data);
-      return response.data;
+      const response = await api.get('/admin/users/list', {
+        params: {
+          student_page: studentPage + 1,
+          student_page_size: studentPageSize,
+          interviewer_page: interviewerPage + 1,
+          interviewer_page_size: interviewerPageSize
+        }
+      });
+      const data = response.data || {};
+      setUsers({
+        students: data.students || [],
+        interviewers: data.interviewers || [],
+        studentCount: data.studentCount ?? 0,
+        interviewerCount: data.interviewerCount ?? 0
+      });
+      return data;
     } finally {
       setLoadingUsers(false);
     }
-  }, []);
+  }, [studentPage, studentPageSize, interviewerPage, interviewerPageSize]);
+
+  const handleStudentPageChange = (event, newPage) => {
+    setStudentPage(newPage);
+  };
+
+  const handleStudentRowsPerPageChange = (event) => {
+    const nextSize = Number(event.target.value) || 10;
+    setStudentPageSize(nextSize);
+    setStudentPage(0);
+  };
+
+  const handleInterviewerPageChange = (event, newPage) => {
+    setInterviewerPage(newPage);
+  };
+
+  const handleInterviewerRowsPerPageChange = (event) => {
+    const nextSize = Number(event.target.value) || 10;
+    setInterviewerPageSize(nextSize);
+    setInterviewerPage(0);
+  };
 
   const latestResumeForStudent = (student) => {
     if (!student?.resumes?.length) return null;
@@ -596,16 +639,16 @@ const UserManager = () => {
     }
   };
 
-  const handleUploadResume = async () => {
-    if (!selectedUser?.data?.id) return;
-    if (!resumeModalState.uploadPath) {
-      setResumeModalMessage('Enter a valid file path before uploading.');
-      return;
-    }
+  const handleUploadResume = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedUser?.data?.id) return;
+    const formData = new FormData();
+    formData.append('resume', file);
+    setResumeModalState((prev) => ({ ...prev, uploading: true }));
     setResumeModalMessage('Uploading resume...');
     try {
-      await api.post(`/admin/students/${selectedUser.data.id}/resume`, {
-        file_path: resumeModalState.uploadPath
+      await api.post(`/admin/students/${selectedUser.data.id}/resume`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
       await loadStudentDetail(selectedUser.data.id);
       const refreshed = await loadUsers();
@@ -614,9 +657,10 @@ const UserManager = () => {
         setSelectedUser({ type: selectedUser.type, data: refreshing });
       }
       setResumeModalMessage('Resume uploaded.');
-      setResumeModalState((prev) => ({ ...prev, uploadPath: '' }));
     } catch (error) {
       setResumeModalMessage(error.response?.data?.message || 'Failed to upload resume.');
+    } finally {
+      setResumeModalState((prev) => ({ ...prev, uploading: false }));
     }
   };
 
@@ -1220,6 +1264,18 @@ const UserManager = () => {
                 </TableBody>
               </Table>
             </TableContainer>
+            <TablePagination
+              component="div"
+              count={users.studentCount || 0}
+              page={studentPage}
+              onPageChange={handleStudentPageChange}
+              rowsPerPage={studentPageSize}
+              onRowsPerPageChange={handleStudentRowsPerPageChange}
+              rowsPerPageOptions={[5, 10, 25]}
+              showFirstButton
+              showLastButton
+              labelRowsPerPage="Students per page"
+            />
             <Typography variant="subtitle1">Interviewers</Typography>
             <Stack direction="row" spacing={2} flexWrap="wrap" mb={2}>
               <TextField
@@ -1356,6 +1412,18 @@ const UserManager = () => {
                 </TableBody>
               </Table>
             </TableContainer>
+            <TablePagination
+              component="div"
+              count={users.interviewerCount || 0}
+              page={interviewerPage}
+              onPageChange={handleInterviewerPageChange}
+              rowsPerPage={interviewerPageSize}
+              onRowsPerPageChange={handleInterviewerRowsPerPageChange}
+              rowsPerPageOptions={[5, 10, 25]}
+              showFirstButton
+              showLastButton
+              labelRowsPerPage="Interviewers per page"
+            />
           </>
         )}
         {selectedUser && (
@@ -1864,18 +1932,19 @@ const UserManager = () => {
           )}
           <Stack spacing={1} mt={2}>
             <Typography variant="subtitle2">Upload new resume</Typography>
-            <Stack direction="row" spacing={1}>
-              <TextField
-                label="File path"
-                value={resumeModalState.uploadPath}
-                onChange={(event) =>
-                  setResumeModalState((prev) => ({ ...prev, uploadPath: event.target.value }))
-                }
-                fullWidth
-                size="small"
-              />
-              <Button variant="contained" onClick={handleUploadResume}>
-                Upload
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Button
+                component="label"
+                variant="contained"
+                disabled={resumeModalState.uploading}
+              >
+                {resumeModalState.uploading ? 'Uploading…' : 'Choose file & upload'}
+                <input
+                  type="file"
+                  hidden
+                  accept=".pdf,.doc,.docx"
+                  onChange={handleUploadResume}
+                />
               </Button>
             </Stack>
           </Stack>

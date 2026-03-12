@@ -6,8 +6,8 @@ const { fetchPointsRules, calculateResumeCost } = require('../services/pointsSer
 const { fetchLatestPublishedInterviewsByStudent } = require('../utils/interviewHelpers');
 const { sendFeedbackNotification } = require('../services/notificationService');
 const { logAudit } = require('../services/auditLogService');
-const fs = require('fs');
 const path = require('path');
+const { getPresignedUrl, getS3Stream } = require('../services/s3Service');
 
 const listResumes = async (req, res) => {
   const {
@@ -136,22 +136,16 @@ const downloadResume = async (req, res) => {
     resume_id: resume.id
   });
   const canView = hr.students_visible !== false;
-  const fileName = `${resume.Student?.User?.name || 'resume'}-${resume.id}${path.extname(resume.file_path)}`;
-  const absolutePath = path.join(process.cwd(), resume.file_path);
+  const presignedUrl = await getPresignedUrl(resume.file_path);
 
-  if (fs.existsSync(absolutePath)) {
-      res.download(absolutePath, fileName);
-  } else {
-      res.json({
-        url: resume.file_path,
-        candidate: canView ? resume.Student?.User?.name : 'Restricted',
-        email: canView ? resume.Student?.User?.email : undefined,
-        download_count: resume.download_count,
-        cost_points: cost,
-        balance: hr.subscription_points,
-        message: 'File not found on local disk, using URL'
-      });
-  }
+  res.json({
+    url: presignedUrl,
+    candidate: canView ? resume.Student?.User?.name : 'Restricted',
+    email: canView ? resume.Student?.User?.email : undefined,
+    download_count: resume.download_count,
+    cost_points: cost,
+    balance: hr.subscription_points
+  });
 };
 
 const subscribe = async (req, res) => {
@@ -292,8 +286,14 @@ const bulkDownloadResumes = async (req, res) => {
   archive.pipe(res);
 
   for (const resume of resumes) {
-    if (resume.file_content) {
-      archive.append(resume.file_content, { name: `${resume.filename || 'resume'}_${resume.student_id}.pdf` });
+    if (resume.file_path) {
+      try {
+        const stream = await getS3Stream(resume.file_path);
+        const filename = `${resume.student_id}_${path.basename(resume.file_path)}`;
+        archive.append(stream, { name: filename });
+      } catch (err) {
+        console.error(`Failed to fetch S3 file for resume ${resume.id}:`, err.message);
+      }
     }
   }
 

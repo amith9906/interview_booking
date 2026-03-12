@@ -12,7 +12,9 @@ const {
 const {
   createResource,
   listResources,
-  assignResourceToStudents
+  assignResourceToStudents,
+  downloadResource,
+  resourceUpload
 } = require('../controllers/resourceController');
 const authenticate = require('../middlewares/authenticate');
 const authorize = require('../middlewares/authorize');
@@ -29,7 +31,8 @@ router.post('/rate', rateInterview);
 router.get('/resumes/:id', downloadResumeForInterviewer);
 router.get('/analytics', getInterviewerAnalytics);
 router.get('/resources', listResources);
-router.post('/resources', createResource);
+router.post('/resources', resourceUpload.single('file'), createResource);
 router.post('/resources/:id/assign', assignResourceToStudents);
+router.get('/resources/:id/download', downloadResource);
 
 module.exports = router;

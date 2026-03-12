@@ -42,6 +42,15 @@ export const fetchResumes = createAsyncThunk(
 export const downloadResume = createAsyncThunk('resume/downloadResume', async (id, { rejectWithValue }) => {
   try {
     const response = await api.post(`/hr/resumes/${id}/download`);
+    const { url, candidate } = response.data;
+    if (url) {
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', candidate ? `${candidate}-resume` : 'resume');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
     return response.data;
   } catch (err) {
     return rejectWithValue(handleError(err));

@@ -23,6 +23,7 @@ const StudentResources = () => {
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [downloadingId, setDownloadingId] = useState(null);
 
   const loadResources = async () => {
     setLoading(true);
@@ -40,6 +41,19 @@ const StudentResources = () => {
   useEffect(() => {
     loadResources();
   }, []);
+
+  const handleOpenResource = async (resourceId) => {
+    setDownloadingId(resourceId);
+    setError('');
+    try {
+      const response = await api.get(`/student/resources/${resourceId}/download`);
+      window.open(response.data.url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not open resource. Please try again.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   return (
     <Stack spacing={2}>
@@ -69,8 +83,12 @@ const StudentResources = () => {
             </Box>
             <Stack direction="row" spacing={1}>
               {resource.file_url && (
-                <Button variant="outlined" component="a" href={resource.file_url} target="_blank" rel="noreferrer">
-                  Download
+                <Button
+                  variant="outlined"
+                  onClick={() => handleOpenResource(resource.id)}
+                  disabled={downloadingId === resource.id}
+                >
+                  {downloadingId === resource.id ? 'Loading…' : 'Download / Preview'}
                 </Button>
               )}
               {resource.link && (

@@ -16,7 +16,7 @@ const {
   listStudentBookings,
   cancelBooking
 } = require('../controllers/studentController');
-const { listStudentResources } = require('../controllers/resourceController');
+const { listStudentResources, downloadStudentResource } = require('../controllers/resourceController');
 const authenticate = require('../middlewares/authenticate');
 const authorize = require('../middlewares/authorize');
 const ensureProfileComplete = require('../middlewares/ensureProfileComplete');
@@ -46,6 +46,7 @@ router.post('/internships', validateBody(enrollInternshipSchema), enrollInternsh
 router.post('/sessions/verify', validateBody(verifySessionSchema), verifySession);
 router.get('/analytics', getStudentAnalytics);
 router.get('/resources', listStudentResources);
+router.get('/resources/:id/download', downloadStudentResource);
 
 router.post('/cancel-booking/:bookingId', cancelBooking);
 

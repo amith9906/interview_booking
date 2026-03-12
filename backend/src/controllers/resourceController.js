@@ -1,4 +1,16 @@
 const { Resource, StudentResource, Student, User, ResourceAudit } = require('../models');
+const multer = require('multer');
+const { buildResourceKey, uploadToS3, getPresignedUrl } = require('../services/s3Service');
+
+const resourceUpload = multer({ storage: multer.memoryStorage() });
+
+const FILE_TYPES = ['pdf', 'ppt'];
+const ALLOWED_MIMETYPES = [
+  'application/pdf',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+];
+const isS3Key = (value) => value && !value.startsWith('http');
 
 const assignResource = async (resourceId, studentIds = [], performedByUserId = null) => {
   const ids = [...new Set(studentIds.filter(Boolean))];
@@ -28,19 +40,47 @@ const createResource = async (req, res) => {
     title,
     description,
     link,
-    file_url,
+    file_url: bodyFileUrl,
     resource_type = 'other',
-    student_ids = [],
     visible_to_hr = false
   } = req.body;
+
+  // student_ids may arrive as comma-separated string or JSON array from FormData
+  let student_ids = [];
+  if (req.body.student_ids) {
+    if (Array.isArray(req.body.student_ids)) {
+      student_ids = req.body.student_ids.map(Number).filter(Boolean);
+    } else {
+      try {
+        const parsed = JSON.parse(req.body.student_ids);
+        student_ids = Array.isArray(parsed) ? parsed.map(Number).filter(Boolean) : [];
+      } catch {
+        student_ids = String(req.body.student_ids).split(',').map(Number).filter(Boolean);
+      }
+    }
+  }
+
   if (!title) return res.status(400).json({ message: 'Title is required' });
+
+  let file_url = bodyFileUrl || null;
+
+  if (req.file) {
+    if (!ALLOWED_MIMETYPES.includes(req.file.mimetype)) {
+      return res.status(400).json({ message: 'Only PDF and PPT files are allowed' });
+    }
+    const sanitizedFilename = req.file.originalname.replace(/[^\w.-]/g, '_');
+    const s3Key = buildResourceKey(sanitizedFilename);
+    await uploadToS3(req.file.buffer, s3Key, req.file.mimetype);
+    file_url = s3Key;
+  }
+
   const resource = await Resource.create({
     title,
     description,
     link,
     file_url,
     resource_type,
-    visible_to_hr,
+    visible_to_hr: visible_to_hr === true || visible_to_hr === 'true',
     created_by_user_id: req.user.id,
     created_by_role: req.user.role
   });
@@ -105,7 +145,10 @@ const downloadResource = async (req, res) => {
   const { id } = req.params;
   const resource = await Resource.findByPk(id);
   if (!resource) return res.status(404).json({ message: 'Resource not found' });
-  const url = resource.file_url || resource.link;
+  let url = resource.link || null;
+  if (resource.file_url) {
+    url = isS3Key(resource.file_url) ? await getPresignedUrl(resource.file_url) : resource.file_url;
+  }
   if (!url) {
     return res.status(400).json({ message: 'No download URL available for this resource' });
   }
@@ -116,6 +159,28 @@ const downloadResource = async (req, res) => {
     resource_type: resource.resource_type,
     visible_to_hr: resource.visible_to_hr
   });
+};
+
+const downloadStudentResource = async (req, res) => {
+  const { id } = req.params;
+  const student = await Student.findOne({ where: { user_id: req.user.id } });
+  if (!student) return res.status(404).json({ message: 'Student profile missing' });
+
+  const assignment = await StudentResource.findOne({
+    where: { resource_id: id, student_id: student.id }
+  });
+  if (!assignment) return res.status(403).json({ message: 'Access denied' });
+
+  const resource = await Resource.findByPk(id);
+  if (!resource) return res.status(404).json({ message: 'Resource not found' });
+
+  let url = resource.link || null;
+  if (resource.file_url) {
+    url = isS3Key(resource.file_url) ? await getPresignedUrl(resource.file_url) : resource.file_url;
+  }
+  if (!url) return res.status(400).json({ message: 'No file available for this resource' });
+
+  res.json({ url, title: resource.title, resource_type: resource.resource_type });
 };
 
 const publishResourceToHr = async (req, res) => {
@@ -216,5 +281,7 @@ module.exports = {
   downloadResource,
   publishResourceToHr,
   listStudentResources,
-  listResourceAudits
+  listResourceAudits,
+  downloadStudentResource,
+  resourceUpload
 };

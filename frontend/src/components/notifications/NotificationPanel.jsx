@@ -32,6 +32,14 @@ const NotificationPanel = () => {
     }
   };
 
+  const formatNotificationDate = (notification) => {
+    const timestamp = notification.createdAt || notification.created_at;
+    if (!timestamp) return 'Unknown time';
+    const parsed = new Date(timestamp);
+    if (Number.isNaN(parsed.getTime())) return 'Unknown time';
+    return parsed.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+  };
+
   useEffect(() => {
     loadNotifications();
   }, []);
@@ -119,7 +127,7 @@ const NotificationPanel = () => {
                   }
                   secondary={
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                      {notification.message} · {new Date(notification.created_at).toLocaleString()}
+                      {notification.message} · {formatNotificationDate(notification)}
                     </Typography>
                   }
                 />

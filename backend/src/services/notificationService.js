@@ -126,6 +126,7 @@ const sendWelcomeEmail = async ({ role, to, name, userId }) => {
 };
 
 const sendVerificationEmail = async ({ to, code, subject, text }) => {
+  console.log('Sending verification email to', to, 'with code', code);
   await sendEmail({
     to,
     subject: subject || 'Verify your Interview Booking email',

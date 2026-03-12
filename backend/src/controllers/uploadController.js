@@ -1,9 +1,8 @@
-const fs = require('fs');
-const path = require('path');
 const multer = require('multer');
 const pdfParse = require('pdf-parse');
 const { Student, Resume } = require('../models');
 const { isStudentProfileComplete, PROFILE_STATUS } = require('../utils/profileStatus');
+const { buildS3Key, uploadToS3, getPresignedUrl } = require('../services/s3Service');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -14,12 +13,6 @@ const sanitizeSegment = (value) => {
     .replace(/[^a-z0-9.-]+/g, '_')
     .replace(/__+/g, '_')
     .replace(/^_|_$/g, '');
-};
-
-const ensureStudentDir = async (studentFolder) => {
-  const localDir = path.join(process.cwd(), 'uploads', 'resumes', studentFolder);
-  await fs.promises.mkdir(localDir, { recursive: true });
-  return localDir;
 };
 
 const extractResumeData = async (buffer) => {
@@ -93,21 +86,29 @@ const uploadResume = async (req, res) => {
   }
 
   const studentName = sanitizeSegment(req.user.name || req.user.email || `student-${student.id}`);
-  const studentFolder = `${student.id}-${studentName || 'student'}`;
-  const localDir = await ensureStudentDir(studentFolder);
-  const sanitizedName = req.file.originalname.replace(/[^\w.-]/g, '_');
-  const localPath = path.join(localDir, sanitizedName);
-  await fs.promises.writeFile(localPath, buffer);
-  const fileUrl = path.posix.join('uploads', 'resumes', studentFolder, sanitizedName);
+  const sanitizedFilename = req.file.originalname.replace(/[^\w.-]/g, '_');
+  const s3Key = buildS3Key(studentName, sanitizedFilename);
 
-  await Resume.create({ student_id: student.id, file_path: fileUrl });
-  student.resume_file = fileUrl;
+  await uploadToS3(buffer, s3Key, req.file.mimetype);
+
+  await Resume.create({ student_id: student.id, file_path: s3Key });
+  student.resume_file = s3Key;
   student.profile_status = isStudentProfileComplete(student) ? PROFILE_STATUS.PENDING_REVIEW : PROFILE_STATUS.DRAFT;
   student.profile_rejected_reason = null;
   student.profile_submitted_at = student.profile_status === PROFILE_STATUS.PENDING_REVIEW ? new Date() : null;
   await student.save();
 
-  res.json({ url: fileUrl, local: true, extractedData });
+  res.json({ url: s3Key, extractedData });
 };
 
-module.exports = { upload, uploadResume };
+const previewResume = async (req, res) => {
+  if (req.user.role !== 'student') return res.status(403).json({ message: 'Only students can preview their resume' });
+
+  const student = await Student.findOne({ where: { user_id: req.user.id } });
+  if (!student || !student.resume_file) return res.status(404).json({ message: 'No resume uploaded yet' });
+
+  const url = await getPresignedUrl(student.resume_file);
+  res.json({ url });
+};
+
+module.exports = { upload, uploadResume, previewResume };

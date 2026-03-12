@@ -19,6 +19,7 @@ const ProfileOnboarding = ({ role }) => {
   });
   const [statusMessage, setStatusMessage] = useState('');
   const [resumeStatus, setResumeStatus] = useState('idle');
+  const [resumePreviewLoading, setResumePreviewLoading] = useState(false);
 
   const initialValues = useMemo(() => {
     const serializedProjects = Array.isArray(profile?.projects)
@@ -88,6 +89,18 @@ const ProfileOnboarding = ({ role }) => {
       setStatusMessage('Profile saved. Waiting for verification.');
     } catch (err) {
       setStatusMessage(err || 'Unable to save profile.');
+    }
+  };
+
+  const handleResumePreview = async () => {
+    setResumePreviewLoading(true);
+    try {
+      const { data } = await api.get('/upload/resume/preview');
+      window.open(data.url, '_blank', 'noopener,noreferrer');
+    } catch {
+      setStatusMessage('Could not load resume preview. Please try again.');
+    } finally {
+      setResumePreviewLoading(false);
     }
   };
 
@@ -218,6 +231,16 @@ const ProfileOnboarding = ({ role }) => {
               <Typography variant="caption" color="text.secondary">
                 {profile.resume_file ? 'Resume uploaded' : 'No resume yet'}
               </Typography>
+              {profile.resume_file && (
+                <Button
+                  variant="text"
+                  size="small"
+                  onClick={handleResumePreview}
+                  disabled={resumePreviewLoading}
+                >
+                  {resumePreviewLoading ? 'Loading…' : 'View Resume'}
+                </Button>
+              )}
               {resumeStatus === 'uploading' && <Typography variant="caption">Uploading…</Typography>}
               {resumeStatus === 'done' && <Typography variant="caption" color="success.main">Uploaded</Typography>}
               {resumeStatus === 'error' && <Typography variant="caption" color="error.main">Upload failed</Typography>}

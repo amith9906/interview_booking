@@ -79,7 +79,8 @@ const {
   listAssignments,
   listResourceAudits,
   downloadResource,
-  publishResourceToHr
+  publishResourceToHr,
+  resourceUpload
 } = require('../controllers/resourceController');
 const { validateBody } = require('../middlewares/validate');
 const {
@@ -103,6 +104,8 @@ const rateLimit = require('express-rate-limit');
 const authenticate = require('../middlewares/authenticate');
 const authorize = require('../middlewares/authorize');
 const { getOpsMetrics } = require('../controllers/opsController');
+const multer = require('multer');
+const adminUpload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
 const adminLimiter = rateLimit({
@@ -163,7 +166,7 @@ router.post('/bookings/:bookingId/complete', adminCompleteInterview);
 router.patch('/bookings/:bookingId/start', startInterview);
 router.patch('/students/:studentId/feedback', editStudentFeedback);
 router.get('/students/:id', getStudentDetail);
-router.post('/students/:id/resume', uploadStudentResume);
+router.post('/students/:id/resume', adminUpload.single('resume'), uploadStudentResume);
 router.post('/points-rules', createPointsRule);
 router.get('/points-rules', listPointsRules);
 router.get('/consultancies/analytics', getConsultancyAnalytics);
@@ -177,7 +180,7 @@ router.get('/users/list', listUsers);
   router.get('/feedback/export', exportFeedbackHistory);
 router.get('/templates/feedback/:interviewId', downloadFeedbackTemplate);
 router.get('/resources', listResources);
-router.post('/resources', validateBody(createResourceSchema), createResource);
+router.post('/resources', resourceUpload.single('file'), createResource);
 router.post('/resources/:id/assign', validateBody(assignResourceSchema), assignResourceToStudents);
 router.get('/resources/assignments', listAssignments);
 router.get('/resources/:id/download', downloadResource);

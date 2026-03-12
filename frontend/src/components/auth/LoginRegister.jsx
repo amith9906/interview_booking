@@ -170,6 +170,15 @@ const LoginRegister = () => {
     }
   };
 
+  const handleResendVerificationCode = async () => {
+    if (!verificationEmail) return;
+    try {
+      await dispatch(resendVerificationCode({ email: verificationEmail })).unwrap();
+    } catch (err) {
+      // slice handles the error message
+    }
+  };
+
   const resetForgotForm = () => {
     setForgotStep('idle');
     setForgotCode('');
@@ -590,11 +599,3 @@ const LoginRegister = () => {
 };
 
 export default LoginRegister;
-  const handleResendVerificationCode = async () => {
-    if (!verificationEmail) return;
-    try {
-      await dispatch(resendVerificationCode({ email: verificationEmail })).unwrap();
-    } catch (err) {
-      // error handled by slice
-    }
-  };

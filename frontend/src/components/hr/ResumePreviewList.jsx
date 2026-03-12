@@ -65,10 +65,7 @@ const ResumePreviewList = () => {
 
   const handleDownload = async (id) => {
     try {
-      const result = await dispatch(downloadResume(id)).unwrap();
-      if (result.url) {
-        window.open(result.url, '_blank');
-      }
+      await dispatch(downloadResume(id)).unwrap();
     } catch (err) {
       console.error('Download failed', err);
     }

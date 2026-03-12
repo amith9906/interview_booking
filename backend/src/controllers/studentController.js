@@ -1,4 +1,4 @@
-const { Op } = require('sequelize');
+const { Op, literal } = require('sequelize');
 const {
   Interviewer,
   Booking,
@@ -40,9 +40,23 @@ const logPaymentStatus = async ({ sessionId, status, message }) => {
 const searchInterviews = async (req, res) => {
   const { skills, exp, company } = req.query;
   const where = {};
+  let skillArray = [];
   if (skills) {
-    const skillArray = skills.split(',').map((s) => s.trim()).filter(Boolean);
-    where.skill_set = { [Op.overlap]: skillArray };
+    skillArray = skills
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (skillArray.length) {
+      const escapeValue = (value) => value.replace(/'/g, "''").toLowerCase();
+      const skillFilters = skillArray.map((skill) =>
+        literal(
+          `EXISTS (SELECT 1 FROM unnest("skill_set") AS s WHERE lower(s) LIKE '%${escapeValue(
+            skill
+          )}%')`
+        )
+      );
+      where[Op.or] = skillFilters;
+    }
   }
   if (exp) {
     where.experience_years = { [Op.gte]: parseInt(exp, 10) };
@@ -89,6 +103,18 @@ const searchInterviews = async (req, res) => {
       });
     }
     
+    const normalizedSkillSet = (data.skill_set || []).map((skill) => (skill || '').toLowerCase());
+    const matchedSkills = Array.from(
+      new Set(
+        skillArray
+          .map((skill) => skill.trim())
+          .filter(Boolean)
+          .filter((term) => normalizedSkillSet.some((stored) => stored.includes(term.toLowerCase())))
+      )
+    );
+    data.matched_skills = matchedSkills;
+    data.match_count = matchedSkills.length;
+
     return data;
   });
 
