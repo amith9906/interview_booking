@@ -56,11 +56,11 @@ const NotificationPanel = () => {
 
   return (
     <>
-      <IconButton onClick={handleOpen} sx={{ color: '#f8fafc' }} size="large" aria-label="notifications">
+      <IconButton onClick={handleOpen} sx={{ color: '#333333' }} size="large" aria-label="notifications">
         <Badge
           badgeContent={unreadCount}
           color="error"
-          sx={{ '& .MuiBadge-badge': { boxShadow: '0 0 0 2px rgba(15, 23, 42, 0.9)' } }}
+          sx={{ '& .MuiBadge-badge': { boxShadow: '0 0 0 2px rgba(255, 255, 255, 0.9)' } }}
         >
           <NotificationsIcon />
         </Badge>

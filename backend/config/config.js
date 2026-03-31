@@ -1,5 +1,10 @@
 require('dotenv').config();
 
+// When connecting to local Postgres (often without SSL), Sequelize will fail if we
+// force SSL. Control this via DB_SSL=true/false.
+const useSslInDevelopment = process.env.DB_SSL === 'true' || process.env.DB_SSL === '1';
+const useSslInProduction = process.env.DB_SSL !== 'false';
+
 module.exports = {
   development: {
     username: process.env.DB_USER,
@@ -9,10 +14,9 @@ module.exports = {
     port: process.env.DB_PORT || 5432,
     dialect: 'postgres',
     dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false
-      }
+      ssl: useSslInDevelopment
+        ? { require: true, rejectUnauthorized: false }
+        : false
     }
   },
 
@@ -33,10 +37,9 @@ module.exports = {
     port: process.env.DB_PORT || 5432,
     dialect: 'postgres',
     dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false
-      }
+      ssl: useSslInProduction
+        ? { require: true, rejectUnauthorized: false }
+        : false
     }
   }
 };

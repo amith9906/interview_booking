@@ -1,4 +1,4 @@
-import { AppBar, Box, Button, Container, Toolbar, Typography, ThemeProvider, createTheme, CssBaseline, Stack, LinearProgress } from '@mui/material';
+import { AppBar, Box, Button, Container, Toolbar, ThemeProvider, createTheme, CssBaseline, Stack, LinearProgress } from '@mui/material';
 import { Routes, Route, Link, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from './store/authSlice';
@@ -10,50 +10,55 @@ import StudentDashboard from './pages/StudentDashboard';
 import LoginRegister from './components/auth/LoginRegister';
 import NotificationPanel from './components/notifications/NotificationPanel';
 import roleRoutes from './utils/roleRoutes';
+import HomePage from './pages/HomePage';
+import ServicesPage from './pages/ServicesPage';
+import ContactPage from './pages/ContactPage';
 
-const darkTheme = createTheme({
+const lightTheme = createTheme({
   palette: {
-    mode: 'dark',
-    primary: { main: '#a855f7' },
-    background: { paper: 'rgba(15, 23, 42, 0.8)', default: '#0f172a' },
-    text: { primary: '#f8fafc', secondary: '#94a3b8' }
+    mode: 'light',
+    primary: { main: '#ff3b3b' },
+    background: { paper: '#ffffff', default: '#f5f7fa' },
+    text: { primary: '#111111', secondary: '#555555' }
   },
   typography: { fontFamily: '"Inter", system-ui, -apple-system, sans-serif' },
   components: {
-    MuiPaper: { 
-      styleOverrides: { 
-        root: { 
-          backgroundImage: 'none', 
-          backgroundColor: 'rgba(15, 23, 42, 0.6)', 
-          backdropFilter: 'blur(24px)', 
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: 16
-        } 
-      } 
-    },
-    MuiCard: { 
-      styleOverrides: { 
-        root: { 
-          backgroundImage: 'none', 
-          backgroundColor: 'rgba(15, 23, 42, 0.6)', 
-          backdropFilter: 'blur(24px)', 
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundImage: 'none',
+          backgroundColor: '#ffffff',
+          backdropFilter: 'blur(6px)',
+          border: '1px solid rgba(0, 0, 0, 0.06)',
           borderRadius: 16,
-          boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
-        } 
-      } 
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.08)'
+        }
+      }
     },
-    MuiAppBar: { 
-      styleOverrides: { 
-        root: { 
-          backgroundImage: 'none', 
-          backgroundColor: 'rgba(15, 23, 42, 0.8)', 
-          backdropFilter: 'blur(24px)', 
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          boxShadow: 'none',
-          borderRadius: 0
-        } 
-      } 
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          backgroundImage: 'none',
+          backgroundColor: '#ffffff',
+          backdropFilter: 'blur(6px)',
+          border: '1px solid rgba(0, 0, 0, 0.06)',
+          borderRadius: 16,
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.08)'
+        }
+      }
+    },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundImage: 'none',
+          backgroundColor: 'rgba(255, 255, 255, 0.7)',
+          backdropFilter: 'blur(10px)',
+          borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
+          boxShadow: '0 1px 8px rgba(0, 0, 0, 0.04)',
+          borderRadius: 0,
+          color: '#111111'
+        }
+      }
     },
     MuiOutlinedInput: { styleOverrides: { root: { borderRadius: 12 } } },
     MuiButton: { styleOverrides: { root: { borderRadius: 12, textTransform: 'none', fontWeight: 600 } } }
@@ -86,34 +91,63 @@ function App() {
   const shouldCompleteProfile = needsProfileCompletion(userRole, auth.profile);
 
   const getHomeRoute = () => {
-    if (!auth.token) return <LoginRegister />;
+    if (!auth.token) return <HomePage />;
     if (shouldCompleteProfile) {
       return <Navigate to="/complete-profile" replace />;
     }
     return <Navigate to={roleRoutes[userRole] || '/'} replace />;
   };
+
+  const getDashboardRoute = () => {
+    if (!auth.token) return '/login';
+    return roleRoutes[userRole] || '/';
+  };
   return (
-    <ThemeProvider theme={darkTheme}>
+    <ThemeProvider theme={lightTheme}>
       <CssBaseline />
       <Box className="landing-shell" sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <div className="orbit orbit-one" />
         <div className="orbit orbit-two" />
         <div className="orbit orbit-three" />
-        <AppBar position="sticky" sx={{ zIndex: 1100 }}>
+        <AppBar position="sticky" elevation={0} className="app-navbar" sx={{ zIndex: 1100, position: 'relative' }}>
           <Container maxWidth="xl">
-            <Toolbar disableGutters sx={{ justifyContent: 'space-between', py: 0.5 }}>
-              <Typography variant="h6" fontWeight="bold" sx={{ background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', cursor: 'pointer' }} onClick={() => navigate('/')} aria-label="Home">
-                Interview Booking App
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Toolbar disableGutters sx={{ justifyContent: 'space-between', py: 0.75 }}>
+              <Box
+                component="button"
+                type="button"
+                className="app-navbar-logo"
+                onClick={() => navigate('/')}
+                aria-label="Home"
+              >
+                Interview
+              </Box>
+              <Box className="app-navbar-actions" sx={{ display: 'flex', gap: { xs: 0.25, sm: 0.5 }, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 {auth.token && <NotificationPanel />}
+                {!auth.token && (
+                  <Stack direction="row" spacing={0.25} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
+                    <Button component={Link} to="/" color="inherit" className="app-nav-link">
+                      Home
+                    </Button>
+                    <Button component={Link} to="/services" color="inherit" className="app-nav-link">
+                      Services
+                    </Button>
+                    <Button component={Link} to="/contact" color="inherit" className="app-nav-link">
+                      Contact
+                    </Button>
+                  </Stack>
+                )}
                 {auth.token && (
-                  <Button color="inherit" onClick={handleLogout} sx={{ '&:hover': { background: 'rgba(255,255,255,0.08)' } }} aria-label="Logout">
+                  <Button color="inherit" className="app-nav-link" onClick={() => navigate(getDashboardRoute())} aria-label="Dashboard">
+                    Dashboard
+                  </Button>
+                )}
+                {auth.token && (
+                  <Button color="inherit" className="app-nav-link" onClick={handleLogout} aria-label="Logout">
                     Logout
                   </Button>
                 )}
-                {!auth.token && location.pathname !== '/' && (
-                  <Button component={Link} to="/" color="inherit" sx={{ '&:hover': { background: 'rgba(255,255,255,0.08)' } }} aria-label="Login">
+                {!auth.token && location.pathname !== '/login' && (
+                  <Button component={Link} to="/login" color="inherit" className="app-nav-link app-nav-link--emphasis" aria-label="Login">
                     Login
                   </Button>
                 )}
@@ -126,6 +160,12 @@ function App() {
         <Box component="main" sx={{ flexGrow: 1, position: 'relative', zIndex: 10 }}>
           <Routes>
             <Route path="/" element={getHomeRoute()} />
+            <Route
+              path="/login"
+              element={auth.token ? <Navigate to={getDashboardRoute()} replace /> : <LoginRegister />}
+            />
+            <Route path="/services" element={<ServicesPage />} />
+            <Route path="/contact" element={<ContactPage />} />
             <Route
               path="/student"
               element={

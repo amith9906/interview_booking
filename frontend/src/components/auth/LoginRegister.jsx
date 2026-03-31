@@ -1,12 +1,11 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useForm } from 'react-hook-form';
 import {
   Box,
   Button,
   Chip,
-  Divider,
-  Grid,
+  Container,
   Paper,
   Stack,
   TextField,
@@ -14,8 +13,8 @@ import {
   IconButton,
   InputAdornment
 } from '@mui/material';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import {
   fetchProfile,
   forgotPassword,
@@ -29,24 +28,6 @@ import {
   resendVerificationCode
 } from '../../store/authSlice';
 import roleRoutes from '../../utils/roleRoutes';
-
-const featureHighlights = [
-  {
-    title: 'Modern Landing Experience',
-    copy: 'Hero copy with role-specific onboarding cues keeps visitors focused on their next milestone.',
-    badge: 'New Hero'
-  },
-  {
-    title: 'Guided Profile Completion',
-    copy: 'Students and interviewers alike follow curated steps before admin approval unlocks bookings.',
-    badge: 'Must Complete'
-  },
-  {
-    title: 'Verified Outcomes',
-    copy: 'Admins review status, export bookings/profiles, and keep teammate data aligned with rich exports.',
-    badge: 'Admin Ops'
-  }
-];
 
 const roleHighlights = {
   student: [
@@ -280,42 +261,130 @@ const LoginRegister = () => {
     }
   }, [mode, showForgot, dispatch]);
 
+  const primaryCtaGradient = {
+    background: 'linear-gradient(135deg, #ff2d2d 0%, #ff6b6b 100%)',
+    boxShadow: '0 4px 24px rgba(255, 0, 0, 0.2)',
+    '&:hover': {
+      background: 'linear-gradient(135deg, #ff4d4d 0%, #ff8a8a 100%)',
+      boxShadow: '0 6px 28px rgba(255, 0, 0, 0.28)'
+    }
+  };
+
+  const authInputSx = {
+    '& .MuiOutlinedInput-root': {
+      bgcolor: 'rgba(245, 247, 250, 0.8)',
+      borderRadius: 2,
+      '& fieldset': { borderColor: 'rgba(0, 0, 0, 0.1)' },
+      '&:hover fieldset': { borderColor: 'rgba(255, 59, 59, 0.3)' },
+      '&.Mui-focused fieldset': { borderColor: 'rgba(255, 59, 59, 0.55)' }
+    }
+  };
+
   return (
-    <Box sx={{ flexGrow: 1, position: 'relative' }}>
-      <Grid container justifyContent="center" sx={{ px: 2, pt: 6 }}>
-        <Grid item xs={12} md={10}>
-          <Grid container spacing={6} alignItems="stretch">
-            <Grid item xs={12} md={7}>
-              <Paper className="hero-card" elevation={4}>
-                <Typography variant="h3" fontWeight={700} gutterBottom>
-                  Launch your interview journey with polished onboarding
+    <Container
+      maxWidth="xl"
+      className="login-page-shell"
+      sx={{
+        flexGrow: 1,
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        minHeight: { xs: 'auto', md: 'calc(100vh - 64px)' },
+        py: { xs: 3, md: 4 },
+        boxSizing: 'border-box'
+      }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          alignItems: { xs: 'stretch', md: 'center' },
+          gap: { xs: 4, md: 6, lg: 10 },
+          width: '100%'
+        }}
+      >
+        <Box
+          sx={{
+            flex: { md: '2 1 0' },
+            minWidth: 0,
+            pr: { md: 1 },
+            zIndex: 1
+          }}
+        >
+          <Typography
+            variant="h2"
+            component="h1"
+            sx={{
+              fontWeight: 800,
+              fontSize: { xs: '1.85rem', sm: '2.25rem', md: '2.75rem', lg: '3.25rem' },
+              lineHeight: 1.15,
+              letterSpacing: '-0.02em',
+              color: '#111111',
+              mb: 2
+            }}
+          >
+            Launch your interview journey with polished onboarding
+          </Typography>
+          <Typography
+            variant="body1"
+            sx={{
+              color: '#555555',
+              maxWidth: 560,
+              mb: 2.5,
+              lineHeight: 1.65,
+              fontSize: { xs: '0.95rem', md: '1.05rem' }
+            }}
+          >
+            A landing flow that doubles as {highlightRole || 'role'}-specific onboarding keeps candidates, interviewers,
+            and admins aligned. Complete your profile, upload a resume, and wait for admin verification before exploring
+            the dashboard.
+          </Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 3, gap: 1 }}>
+            {['role-specific', 'verified', 'export-ready'].map((label) => (
+              <Chip key={label} label={label} className="hero-chip" size="small" />
+            ))}
+          </Stack>
+          <Stack spacing={1.5} sx={{ maxWidth: 620 }}>
+            {roleHighlights[highlightRole]?.map((item) => (
+              <Paper key={item} elevation={0} className="hero-highlight login-hero-highlight">
+                <Typography variant="body2" sx={{ color: '#555555' }}>
+                  {item}
                 </Typography>
-                <Typography variant="body1" color="text.secondary" paragraph>
-                  A landing page that doubles as {highlightRole || 'role'}-specific onboarding keeps candidates,
-                  interviewers, and admins aligned. Complete the profile, upload a resume, and wait for admin verification
-                  before exploring the dashboard.
-                </Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
-                  {['role-specific', 'verified', 'export-ready'].map((label) => (
-                    <Chip key={label} label={label} className="hero-chip" />
-                  ))}
-                </Stack>
-                <Stack spacing={1.5}>
-                  {roleHighlights[highlightRole]?.map((item) => (
-                    <Paper key={item} elevation={0} className="hero-highlight">
-                      <Typography variant="body2">{item}</Typography>
-                    </Paper>
-                  ))}
-                </Stack>
               </Paper>
-            </Grid>
-            <Grid item xs={12} md={5}>
-              <Paper className="auth-card" elevation={6}>
-                <Typography variant="h5" fontWeight={600} gutterBottom>
-                  {showForgot ? 'Forgot password' : mode === 'login' ? 'Login' : 'Register'}
-                </Typography>
-                <Divider sx={{ mb: 3 }} />
-                <Box component="form" onSubmit={onFormSubmit}>
+            ))}
+          </Stack>
+        </Box>
+
+        <Box
+          sx={{
+            flex: { md: '1 1 0' },
+            width: { xs: '100%', md: 'auto' },
+            maxWidth: { md: 420 },
+            minWidth: { md: 300 },
+            alignSelf: { md: 'stretch' },
+            zIndex: 1
+          }}
+        >
+          <Paper
+            className="auth-card login-auth-card"
+            elevation={0}
+            sx={{
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              borderRadius: '20px',
+              border: '1px solid rgba(0, 0, 0, 0.06)',
+              bgcolor: '#ffffff',
+              backdropFilter: 'blur(20px)',
+              p: { xs: 3, sm: 4 },
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.08)'
+            }}
+          >
+            <Typography variant="h5" fontWeight={700} sx={{ color: '#111111', mb: 2.5 }}>
+              {showForgot ? 'Forgot password' : mode === 'login' ? 'Login' : 'Register'}
+            </Typography>
+            <Box component="form" onSubmit={onFormSubmit} sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                   {showForgot ? (
                     <Stack spacing={2}>
                       <Typography variant="body2" color="text.secondary">
@@ -328,17 +397,13 @@ const LoginRegister = () => {
                         value={forgotEmail}
                         onChange={(event) => setForgotEmail(event.target.value)}
                         fullWidth
+                        sx={authInputSx}
                       />
                       <Button
                         variant="contained"
                         onClick={handleSendResetCode}
                         disabled={auth.forgotStatus === 'loading'}
-                        sx={{
-                          background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-                          boxShadow: '0 4px 14px rgba(168, 85, 247, 0.4)',
-                          transition: 'all 0.3s ease',
-                          '&:hover': { boxShadow: '0 6px 20px rgba(168, 85, 247, 0.6)', transform: 'translateY(-2px)' }
-                        }}
+                        sx={{ py: 1.25, ...primaryCtaGradient }}
                       >
                         {auth.forgotStatus === 'loading' ? 'Sending code…' : 'Send reset code'}
                       </Button>
@@ -363,13 +428,8 @@ const LoginRegister = () => {
                           variant="contained"
                           onClick={handleVerifyResetCode}
                           disabled={auth.verifyResetStatus === 'loading'}
-                            sx={{
-                              background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-                              boxShadow: '0 4px 14px rgba(168, 85, 247, 0.4)',
-                              transition: 'all 0.3s ease',
-                              '&:hover': { boxShadow: '0 6px 20px rgba(168, 85, 247, 0.6)', transform: 'translateY(-2px)' }
-                            }}
-                          >
+                          sx={{ py: 1.25, ...primaryCtaGradient }}
+                        >
                             {auth.verifyResetStatus === 'loading' ? 'Verifying code…' : 'Verify code'}
                           </Button>
                       </Stack>
@@ -394,12 +454,7 @@ const LoginRegister = () => {
                             variant="contained"
                             onClick={handleResetPassword}
                             disabled={auth.resetStatus === 'loading'}
-                            sx={{
-                              background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-                              boxShadow: '0 4px 14px rgba(168, 85, 247, 0.4)',
-                              transition: 'all 0.3s ease',
-                              '&:hover': { boxShadow: '0 6px 20px rgba(168, 85, 247, 0.6)', transform: 'translateY(-2px)' }
-                            }}
+                            sx={{ py: 1.25, ...primaryCtaGradient }}
                           >
                             {auth.resetStatus === 'loading' ? 'Resetting…' : 'Reset password'}
                           </Button>
@@ -414,9 +469,9 @@ const LoginRegister = () => {
                         variant="text"
                         onClick={handleHideForgot}
                         sx={{
-                          color: '#a5b4fc',
+                          color: '#ff3b3b',
                           transition: 'all 0.3s ease',
-                          '&:hover': { color: '#ffffff', background: 'rgba(255,255,255,0.05)' }
+                          '&:hover': { color: '#cc0000', background: 'rgba(255, 0, 0, 0.04)' }
                         }}
                       >
                         Back to login
@@ -424,14 +479,17 @@ const LoginRegister = () => {
                     </Stack>
                   ) : (
                     <>
-                      <Stack spacing={2}>
+                      <Stack spacing={2} sx={{ flex: 1 }}>
                         <TextField
-                          label="Email"
                           type="email"
                           disabled={showVerificationStep}
                           fullWidth
                           error={!!errors.email}
                           helperText={errors.email?.message}
+                          hiddenLabel={mode === 'login'}
+                          label={mode === 'login' ? undefined : 'Email'}
+                          placeholder={mode === 'login' ? 'Email' : undefined}
+                          sx={authInputSx}
                           {...register('email', {
                             required: 'Email is required',
                             pattern: {
@@ -441,14 +499,22 @@ const LoginRegister = () => {
                           })}
                         />
                         <TextField
-                          label="Password"
                           type={showPassword ? 'text' : 'password'}
                           {...register('password', { required: 'Password required' })}
                           fullWidth
+                          hiddenLabel={mode === 'login'}
+                          label={mode === 'login' ? undefined : 'Password'}
+                          placeholder={mode === 'login' ? 'Password' : undefined}
+                          sx={authInputSx}
                           InputProps={{
                             endAdornment: (
                               <InputAdornment position="end">
-                                <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                                <IconButton
+                                  onClick={() => setShowPassword(!showPassword)}
+                                  edge="end"
+                                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                  sx={{ color: 'rgba(85, 85, 85, 0.7)' }}
+                                >
                                   {showPassword ? <VisibilityOff /> : <Visibility />}
                                 </IconButton>
                               </InputAdornment>
@@ -462,12 +528,20 @@ const LoginRegister = () => {
                             fullWidth
                             error={!!errors.phone}
                             helperText={errors.phone?.message}
+                            sx={authInputSx}
                             {...register('phone', { required: 'Mobile number required' })}
                           />
                         )}
                         {mode === 'register' && (
                           <>
-                            <TextField select label="Role" {...register('role')} fullWidth SelectProps={{ native: true }}>
+                            <TextField
+                              select
+                              label="Role"
+                              {...register('role')}
+                              fullWidth
+                              SelectProps={{ native: true }}
+                              sx={authInputSx}
+                            >
                               {roles.map((role) => (
                                 <option key={role.value} value={role.value}>
                                   {role.label}
@@ -481,6 +555,7 @@ const LoginRegister = () => {
                                 {...register('rate')}
                                 fullWidth
                                 helperText="Set how much you charge per session"
+                                sx={authInputSx}
                               />
                             )}
                           </>
@@ -494,32 +569,50 @@ const LoginRegister = () => {
                           <Button
                             variant="contained"
                             type="submit"
+                            fullWidth
+                            size="large"
                             disabled={auth.status === 'loading'}
-                            sx={{
-                              background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-                              boxShadow: '0 4px 14px rgba(168, 85, 247, 0.4)',
-                              transition: 'all 0.3s ease',
-                              '&:hover': { boxShadow: '0 6px 20px rgba(168, 85, 247, 0.6)', transform: 'translateY(-2px)' }
-                            }}
+                            sx={{ py: 1.35, mt: 0.5, fontWeight: 700, ...primaryCtaGradient }}
                           >
                             {mode === 'login' ? 'Login' : 'Create account'}
                           </Button>
                         )}
-                        <Button
-                          variant="text"
-                          onClick={toggleMode}
-                          sx={{ color: '#a5b4fc', transition: 'all 0.3s ease', '&:hover': { color: '#ffffff', background: 'rgba(255,255,255,0.05)' } }}
-                        >
-                          Switch to {mode === 'login' ? 'Register' : 'Login'}
-                        </Button>
-                        {mode === 'login' && !showVerificationStep && (
-                          <Button
-                            variant="text"
-                            onClick={handleShowForgot}
-                            sx={{ color: '#a5b4fc', transition: 'all 0.3s ease', '&:hover': { color: '#ffffff', background: 'rgba(255,255,255,0.05)' } }}
+                        {!showVerificationStep && (
+                          <Stack
+                            direction="row"
+                            spacing={2}
+                            flexWrap="wrap"
+                            justifyContent="center"
+                            useFlexGap
+                            sx={{ gap: 1, pt: 0.5 }}
                           >
-                            Forgot password?
-                          </Button>
+                            <Button
+                              variant="text"
+                              onClick={toggleMode}
+                              sx={{
+                                color: '#ff3b3b',
+                                textTransform: 'none',
+                                fontWeight: 500,
+                                '&:hover': { color: '#cc0000', bgcolor: 'rgba(255, 0, 0, 0.04)' }
+                              }}
+                            >
+                              Switch to {mode === 'login' ? 'Register' : 'Login'}
+                            </Button>
+                            {mode === 'login' && (
+                              <Button
+                                variant="text"
+                                onClick={handleShowForgot}
+                                sx={{
+                                  color: '#ff3b3b',
+                                  textTransform: 'none',
+                                  fontWeight: 500,
+                                  '&:hover': { color: '#cc0000', bgcolor: 'rgba(255, 0, 0, 0.04)' }
+                                }}
+                              >
+                                Forgot password?
+                              </Button>
+                            )}
+                          </Stack>
                         )}
                       </Stack>
                       {showVerificationStep && (
@@ -570,31 +663,21 @@ const LoginRegister = () => {
                       )}
                     </>
                   )}
-                </Box>
-                <Typography variant="caption" display="block" align="center" sx={{ mt: 2 }}>
-                  Profile data is fetched immediately after login so you can continue onboarding without waiting.
-                </Typography>
-              </Paper>
-            </Grid>
-          </Grid>
-          <Grid container spacing={3} sx={{ mt: 6 }}>
-            {featureHighlights.map((feature) => (
-              <Grid item key={feature.title} xs={12} md={4}>
-                <Paper className="feature-card" elevation={2}>
-                  <Chip label={feature.badge} size="small" className="feature-chip" />
-                  <Typography variant="h6" gutterBottom>
-                    {feature.title}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {feature.copy}
-                  </Typography>
-                </Paper>
-              </Grid>
-            ))}
-          </Grid>
-        </Grid>
-      </Grid>
-    </Box>
+            </Box>
+            {!showForgot && (
+              <Typography
+                variant="caption"
+                display="block"
+                align="center"
+                sx={{ mt: 'auto', pt: 2.5, color: '#555555', lineHeight: 1.5 }}
+              >
+                Profile data is fetched immediately after login so you can continue onboarding without waiting.
+              </Typography>
+            )}
+          </Paper>
+        </Box>
+      </Box>
+    </Container>
   );
 };
 

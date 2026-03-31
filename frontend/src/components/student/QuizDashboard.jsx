@@ -67,7 +67,7 @@ const QuizDashboard = () => {
   }
 
   return (
-    <Card variant="outlined" sx={{ background: 'rgba(15, 23, 42, 0.75)' }}>
+    <Card variant="outlined" sx={{ background: '#ffffff' }}>
       <CardContent>
         <Stack spacing={2}>
           <Stack direction="row" alignItems="center" justifyContent="space-between">

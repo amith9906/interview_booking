@@ -106,7 +106,7 @@ const InterviewSearch = () => {
               variant="contained" 
               type="submit" 
               size="large" 
-              sx={{ mt: 2, py: 1.5, background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)' }}
+              sx={{ mt: 2, py: 1.5, background: 'linear-gradient(135deg, #ff2d2d 0%, #ff6b6b 100%)', boxShadow: '0 8px 25px rgba(255, 0, 0, 0.2)', '&:hover': { boxShadow: '0 10px 25px rgba(255, 0, 0, 0.25)' } }}
               disabled={status === 'loading'}
             >
               {status === 'loading' ? 'Searching...' : 'Search Interviewers'}
